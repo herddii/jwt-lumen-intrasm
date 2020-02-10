@@ -49,7 +49,7 @@ $router->group(['prefix' => 'api' , 'middleware' => 'jwt.auth'], function() use 
         $router->delete('userclient_account/{id}',['as'=>'userclient_account.delete','uses'=>'Master\Userclient_accountController@destroy']);
 
         $router->get('get_bu',['as'=>'getbu','uses'=>'Master\BuController@index']);
-         $router->get('get_bu/{id}',['as'=>'get_bu.view','uses'=>'Master\BuController@show']);
+        $router->get('get_bu/{id}',['as'=>'get_bu.view','uses'=>'Master\BuController@show']);
         $router->delete('get_bu/{id}',['as'=>'get_bu.delete','uses'=>'Master\BuController@destroy']);
     });
 
@@ -85,11 +85,16 @@ $router->group(['prefix' => 'api' , 'middleware' => 'jwt.auth'], function() use 
         $router->post('getFile', ['as'=>'getFile', 'uses'=>'Cam\CamActivityController@get_file']);
         $router->post('listAm','Cam\CamActivityController@list_am_for');
         $router->get('listBirthdayClient','Cam\CamActivityController@list_birthday_client');
-        $router->post('listClienthandling','Cam\CamActivityController@list_client_handling');
-        $router->post('listNotClienthandling','Cam\CamActivityController@list_client_not_handling');
-        $router->post('listCompanyAgency','Cam\CamActivityController@list_companyAgency_handling');
-        $router->post('listCompanyAdvertiser','Cam\CamActivityController@list_companyAdv_handling');
-        $router->post('listSummaryCost','Cam\CamActivityController@list_summary_cost');
+        $router->post('listClienthandling','Cam\CamActivityController@list_client_handling'); /*userid & idbu*/
+        $router->post('listNotClienthandling','Cam\CamActivityController@list_client_not_handling'); /*userid & idbu*/
+        $router->post('listCompanyAgency','Cam\CamActivityController@list_companyAgency_handling'); /*userid & position*/
+        $router->post('listCompanyAdvertiser','Cam\CamActivityController@list_companyAdv_handling'); /*userid & position*/
+        $router->post('listclientcompany','Cam\CamActivityController@search_client_company'); /*userid & position*/
+        $router->post('listSummaryCost','Cam\CamActivityController@list_summary_cost'); /*userid & position*/
+        $router->get('getprofiladvance/{id_client_account}','Cam\CamActivityController@getprofiladvance'); /*userid & position*/
+        $router->post('saveProfileAdvance','Cam\CamActivityController@saveProfileAdvance'); /*userid & position*/
+        $router->get('listHobby', 'Cam\CamActivityController@listHobby');
+        $router->post('saveMyclient', 'Cam\CamActivityController@saveMyclient');
     });
 
     $router->group(['prefix'=>'saleskit'],function() use($router){
@@ -126,5 +131,22 @@ $router->group(['prefix' => 'api' , 'middleware' => 'jwt.auth'], function() use 
         Route::post('filter_video_benefit2_tanpabu','Saleskit\YoutubeController@filter_video_benefit2_tanpabu');
         Route::post('filter_video_typespot_tanpabu','Saleskit\YoutubeController@filter_video_typespot_tanpabu');
         Route::post('filter_typespotbaru_tanpabu','Saleskit\YoutubeController@filter_typespotbaru_tanpabu');
+    });
+
+    $router->group(['prefix'=>'sam'],function() use($router){
+        /*concept*/
+        Route::group(['prefix'=>'concept'],function(){
+            Route::get('request_type/{modul}','Sam\Concept\ConceptController@request_type');
+            Route::get('benefit/{id}','Sam\Concept\ConceptController@benefit');
+            Route::get('list_program','Sam\Concept\ConceptController@list_program');
+            Route::post('list_brand','Sam\Concept\ConceptController@list_brand');
+            Route::post('list_advertiser','Sam\Concept\ConceptController@list_advertiser');
+            Route::post('list_agency','Sam\Concept\ConceptController@list_agency');
+            Route::post('list_am','Sam\Concept\ConceptController@list_am');
+            Route::post('list_client','Sam\Concept\ConceptController@list_client');
+            Route::get('show_parameter/{id}','Sam\Concept\ConceptController@show_parameter');
+
+        });
+
     });
 });

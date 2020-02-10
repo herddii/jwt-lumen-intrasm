@@ -6,16 +6,9 @@ class Userclient_picsgm extends Model{
     
     protected $connection="intrasm";
     protected $table="tbl_userclient_picsgm";
-    protected $primaryKey="id";
+    protected $primaryKey="id_client_account";
     protected $hidden =[
         'insert_user',
-        'update_user',
-        'created_at',
-        'updated_at',
-        'deleted_at'
-    ];
-    protected $appends = [
-        'view_url',
-        'delete_url'
+        'update_user'
     ];
 }

@@ -24,5 +24,3 @@ class Activity_login extends Model
         'delete_url'
     ];
 }
-
-

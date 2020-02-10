@@ -69,7 +69,7 @@ class Contentnew extends Model
     }
 
      public function benefit(){
-        return $this->belongsTo('App\Models\Saleskit\Benefit','id_benefit')
+        return $this->belongsTo('App\Models\Intrasm\Benefit','id_benefit')
             ->select(['id_benefit','description','nama_benefit']);
     }
 

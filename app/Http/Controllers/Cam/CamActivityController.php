@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Intervention\Image\ImageManagerStatic as Image;
 use Carbon\Carbon;
+use App\Models\Intrasm\Am;
 
 class CamActivityController extends Controller
 {
@@ -66,6 +67,8 @@ class CamActivityController extends Controller
             $posisi= $userget->POSITION;
             $userid = $userget->USER_ID;
             $tanggal = $request->get('tanggal');
+            $idcam = $request->get('id_cam');
+            $idactivity = $request->get('id_activity');
 
             $search=$request->input('cari_activity');
 
@@ -115,13 +118,19 @@ class CamActivityController extends Controller
                     ->orWhere('user_id', $userid);
                 });
             }
+            if($idcam && $idactivity){
+                $var = $var->whereHas('Cam_activity',function($q) use ($idcam, $idactivity){
+                    $q->where('id_cam',$idcam)
+                    ->where('id_activity',$idactivity);
+                });
+            }
         // return $request->tanggal;
-            if(!$request->exists($tanggal)){
+            if($tanggal){
                 $var=$var->whereHas('Cam_activity', function($q) use ($tanggal){
                     $q->where('start_date','like','%'.$tanggal.'%');
                 });
             }
-            $var=$var->orderBy('start_date', 'ASC')->paginate(5);
+            $var=$var->orderBy('start_date', 'ASC')->paginate(10);
             return response($var);
         } catch(\Exception $e){
             return response($e->getMessage());
@@ -135,8 +144,15 @@ class CamActivityController extends Controller
                $posisi= $userget->POSITION;
                $userid = $userget->USER_ID;
 
-               $var = \DB::connection('cam')->table('tbl_am as a')->select('*')->leftJoin('tbl_user as b','b.USER_ID','a.ID_AM')->where('a.id_am','like','%'.$userid.'%')->get();
-               $kerabat = \DB::connection('cam')->table('tbl_am as a')->select('*')->leftJoin('tbl_user as b','b.USER_ID','a.ID_AM')->leftJoin('tbl_bu as c','c.ID_BU','b.ID_BU');
+               $var = \DB::connection('cam')->table('tbl_am as a')->select('*')
+               ->leftJoin('tbl_user as b','b.USER_ID','a.ID_AM')
+               ->where('a.id_am','like','%'.$userid.'%')
+               ->where('b.ACTIVE', 1)
+               ->get();
+               
+               $kerabat = \DB::connection('cam')->table('tbl_am as a')->select('*')
+               ->leftJoin('tbl_user as b','b.USER_ID','a.ID_AM')
+               ->leftJoin('tbl_bu as c','c.ID_BU','b.ID_BU');
 
                 if($posisi == 'SGM'){
                 $kerabat = $kerabat->where('ID_SGM',$userid);
@@ -258,25 +274,29 @@ class CamActivityController extends Controller
         try {
             $userget = user($request->bearerToken());
             $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
             $idbu = $userget->ID_BU;
-            $var=\DB::table('db_d_target_account as a')->selectRaw('distinct i.id_am_run as id, upper(j.USER_NAME)as text')
-            ->leftJoin('db_m_product as c','c.id_produk','a.id_produk')
-            ->leftJoin('db_m_advertiser as e','e.id_adv','c.id_adv')
-            ->leftJoin('db_m_agencypintu as f','f.id_agcyptu','a.id_agcyptu_run')
-            ->leftJoin('db_m_brand as h','h.id_brand','c.id_brand')
-            ->leftJoin('db_d_target_account_am as i','i.id_targetaccount','a.id_targetaccount')
-            ->leftJoin('tbl_user as j','j.USER_ID','i.id_am_run')
-            ->whereNull('a.deleted_at')
-            ->where('j.active',1)
-            ->where('j.USER_ID', 'not like', '%vacant%')
-            ->where('j.USER_ID', 'not like', '%none%')
-            ->where('j.POSITION', 'AM')
-            ->where('i.id_bu', $idbu)
-            ->orderBy('j.USER_NAME')->get();
+            $var = Am::select('ID_USER as id','NAME as text','USER_ID as values')->leftJoin('tbl_user as b','b.USER_ID','tbl_am.ID_AM');
+            if($posisi=="AM"){
+                $value = Am::select('*')->where('ID_AM',$userid)->first();
+                $var = $var->where('ID_SGM','like',$value->ID_SGM);
+            }elseif($posisi=="SGM"){
+                $value = Am::select('*')->where('ID_SGM',$userid)->first();
+                $var = $var->where('ID_SM','like',$value->ID_SM);
+            }elseif($posisi=="SM"){
+               $value = Am::select('*')->where('ID_SM',$userid)->first();
+               $var = $var->where('ID_GM','like',$value->ID_GM);
+            }else{
+                $value = Am::select('*')->where('ID_GM',$userid)->first();
+                $var = $var->where('ID_GM','like',$value->ID_GM);
+            }
+            $var = $var->where('ID_AM','not like','%vacant%')
+            ->where('ID_SGM','not like','%vacant%')
+            ->where('ID_SM','not like','%vacant%')->get();
 
             return response($var,200);
         } catch (\Exception $e){
-            return response(array('data'=>'Error at Backend'));
+            return response($e->getMessage());
         }  
     }
 
@@ -291,6 +311,7 @@ class CamActivityController extends Controller
             ->where('active',1)
             ->where('USER_ID', 'not like', '%vacant%')
             ->where('USER_ID', 'not like', '%none%')
+            ->where('ACTIVE', 1)
             ->whereIn('position',['SGM', 'AM'])
             ->orderBy('user_name');
 
@@ -322,7 +343,11 @@ class CamActivityController extends Controller
             $posisi= $userget->POSITION;
             $idbu = $userget->ID_BU;
             $email = $userget->USER_ID;
-            $var = \DB::connection('cam')->table('cam_cost as a')->select('*')->leftJoin('cam_activity as b','b.id_activity','a.id_activity')->where('cost_by','like','%'.$email.'%')->where(\DB::raw('month(b.start_date)'),'like','%'.$month.'%')->paginate(4);
+            $var = \DB::connection('cam')->table('cam_cost as a')->select('*')
+            ->leftJoin('cam_activity as b','b.id_activity','a.id_activity')
+            ->where('cost_by','like','%'.$email.'%')
+            ->where(\DB::raw('month(b.start_date)'),'like','%'.$month.'%')
+            ->whereNull('a.deleted_at')->paginate(4);
 
             return response($var,200);
         } catch (\Exception $e){
@@ -375,7 +400,7 @@ class CamActivityController extends Controller
             }) 
             ->where('cost_by','like','%'.$user.'%')
             ->whereNull('a.deleted_at')
-            ->groupBy(\DB::raw('MONTH(b.start_date)'))->get();
+            ->groupBy(\DB::raw('b.start_date'))->get();
 
             return response($var,200);
         } catch (\Exception $e){
@@ -701,7 +726,7 @@ class CamActivityController extends Controller
         $idbu = $userget->ID_BU;
         $posisi= $userget->POSITION;
 
-        $formtask = $request->form;  
+        $formtask = $request->get('form');  
         $userid = $userget->USER_ID;
         $id_cam = $formtask['id_cam'];
         $status_tasklist = $formtask['activity'];
@@ -736,339 +761,342 @@ class CamActivityController extends Controller
 
 
         // if($id_cam){
-            $status_cam_activity=\App\Models\Cam\Cam::select('type')
-            ->where('id_cam', $id_cam)
-            ->get();
+        $status_cam_activity=\App\Models\Cam\Cam::select('type')
+        ->where('id_cam', $id_cam)
+        ->get();
         // End ambil status type
 
         // Di looping biar dapat type nya aja
-            foreach($status_cam_activity as $val2){
-                $type_tasklist=$val2->type;
-            }
+        foreach($status_cam_activity as $val2){
+            $type_tasklist=$val2->type;
+        }
         // End
 
         // Select id cam buat bikin tasklist report, jika dia sudah buat activity Plan
-            $id_activity=\App\Models\Cam\Cam::select('cam.*')
-            ->where('id_cam', $id_cam)
-            ->get();
+        $id_activity=\App\Models\Cam\Cam::select('cam.*')
+        ->where('id_cam', $id_cam)
+        ->get();
         // }
 
 
         if(count($id_activity)>0){
         // Kondisi Report
             // Update tabel CAM
-                $update_cam=\App\Models\Cam\Cam::where('id_cam', $id_cam)
-                ->update(
-                    [
-                        'id_cam_typeactivity'=>$formtask['type_act'],
-                        'id_agcy'=>$formtask['agencypintu'],
-                        'id_brand'=>$formtask['brand'],
-                        'brand_variant'=>$formtask['variant'],
-                        'id_adv'=>$formtask['advertiser'],
-                        'type'=>"REPORT",
-                        'start_date'=>$formtask['startdate'],
-                        'end_date'=>$formtask['enddate'],
-                        'update_user'=>$userid
-                    ]
-                );
+            $update_cam=\App\Models\Cam\Cam::where('id_cam', $id_cam)
+            ->update(
+                [
+                    'id_cam_typeactivity'=>$formtask['type_act'],
+                    'id_agcy'=>$formtask['agencypintu'],
+                    'id_brand'=>$formtask['brand'],
+                    'brand_variant'=>$formtask['variant'],
+                    'id_adv'=>$formtask['advertiser'],
+                    'type'=>"REPORT",
+                    'start_date'=>$formtask['startdate'],
+                    'end_date'=>$formtask['enddate'],
+                    'update_user'=>$userid
+                ]
+            );
             // End update tabel CAM
 
             // Update tabel Cam Brand
-                $update_cam_brand=\App\Models\Cam\Cam_brand::where('id_cam', $id_cam)
-                ->update(
-                    [
-                        'id_brand'=>$formtask['brand']
-                    ]
-                );
+            $update_cam_brand=\App\Models\Cam\Cam_brand::where('id_cam', $id_cam)
+            ->update(
+                [
+                    'id_brand'=>$formtask['brand']
+                ]
+            );
             // End Update Cam Brand
 
             // Buat dapetin id_ref_activity
-                $id_ref_activity=\App\Models\Cam\Cam_activity::select('id_activity')
-                ->leftJoin('cam as b','b.id_cam','=','cam_activity.id_cam')
-                ->where('cam_activity.id_cam', $id_cam)
-                ->whereNull('b.deleted_at')
-                ->get();
+            $id_ref_activity=\App\Models\Cam\Cam_activity::select('id_activity')
+            ->leftJoin('cam as b','b.id_cam','=','cam_activity.id_cam')
+            ->where('cam_activity.id_cam', $id_cam)
+            ->whereNull('b.deleted_at')
+            ->get();
             // End dapetin id refactivity
 
             // Update tabel Cam Activity
-                if(count($id_ref_activity)>0){
-                    $ref_activity=$id_ref_activity[0]['id_activity'];
-                }else{
-                    $ref_activity=0;
-                }
+            if(count($id_ref_activity)>0){
+                $ref_activity=$id_ref_activity[0]['id_activity'];
+            }else{
+                $ref_activity=0;
+            }
 
-                $insert_cam_activity2=new \App\Models\Cam\Cam_activity;
-                $insert_cam_activity2->id_ref_activity=$ref_activity;
-                $insert_cam_activity2->id_cam=$id_cam;
-                if($status_tasklist=="REPORT"){
-                    $insert_cam_activity2->status="ACTUAL";
-                }else{
-                    $insert_cam_activity2->status="PLAN";
-                }
-                $insert_cam_activity2->id_cam_typeactivity=$formtask['type_act'];
-                $insert_cam_activity2->subject=$formtask['subject'];
-                $insert_cam_activity2->location=$formtask['location'];
-                $insert_cam_activity2->description=$formtask['desc'];
-                $insert_cam_activity2->start_date=$formtask['startdate'];
-                $insert_cam_activity2->end_date=$formtask['enddate'];
-                $insert_cam_activity2->potency_revenue=$formtask['potency'];
-                $insert_cam_activity2->insert_user=$userid;
-                $insert_cam_activity2->update_user=$userid;
-                $insert_cam_activity2->save();
+            $insert_cam_activity2=new \App\Models\Cam\Cam_activity;
+            $insert_cam_activity2->id_ref_activity=$ref_activity;
+            $insert_cam_activity2->id_cam=$id_cam;
+            if($status_tasklist=="REPORT"){
+                $insert_cam_activity2->status="ACTUAL";
+            }else{
+                $insert_cam_activity2->status="PLAN";
+            }
+            $insert_cam_activity2->id_cam_typeactivity=$formtask['type_act'];
+            $insert_cam_activity2->subject=$formtask['subject'];
+            $insert_cam_activity2->location=$formtask['location'];
+            $insert_cam_activity2->description=$formtask['desc'];
+            $insert_cam_activity2->start_date=$formtask['startdate'];
+            $insert_cam_activity2->end_date=$formtask['enddate'];
+            $insert_cam_activity2->potency_revenue=$formtask['potency'];
+            $insert_cam_activity2->insert_user=$userid;
+            $insert_cam_activity2->update_user=$userid;
+            $insert_cam_activity2->save();
             // End update tabel Cam Actvity
 
             // Update Cam Partner
-                
+
                 // Delete dlu yang di cam_partner berdasarkan id_cam
-                    $delete_cam_partner=\App\Models\Cam\Cam_partner::where('id_cam', $id_cam)->delete();
+            $delete_cam_partner=\App\Models\Cam\Cam_partner::where('id_cam', $id_cam)->delete();
                 // End delete
 
                 // Kalo sudah di delete kesini
-                    foreach($part as $val){
-                        $insert_partner=new \App\Models\Cam\Cam_partner;
-                        $insert_partner->id_cam=$id_cam;
-                        $insert_partner->user_id=$val['id'];
-                        $insert_partner->keterangan="HADIR";
-                        $insert_partner->save();
-                    }
+            foreach($part as $val){
+                $insert_partner=new \App\Models\Cam\Cam_partner;
+                $insert_partner->id_cam=$id_cam;
+                $insert_partner->user_id=$val['id'];
+                $insert_partner->keterangan="HADIR";
+                $insert_partner->save();
+            }
                 // End
             // End Update Cam Partner
 
             // Buat Update Cam Client
                 // Delete dlu yang di cam_client berdasarkan id_cam
-                    $delete_cam_client=\App\Models\Cam\Cam_client::where('id_cam', $id_cam)->delete();
+            $delete_cam_client=\App\Models\Cam\Cam_client::where('id_cam', $id_cam)->delete();
                 // End delete
 
                 // Kalo sudah di delete kesini
-                    foreach ($client as $key=>$simpanclient) {
-                        $insertclient=new \App\Models\Cam\Cam_client;
-                        $insertclient->id_cam=$id_cam;
-                        $insertclient->id_client_account=$simpanclient['id_client_account'];
-                        if($status_tasklist=="plan"){
-                            $insertclient->id_status="COST";
-                        }else{
-                            $insertclient->id_status="REPORTING";
-                        }
-                        $insertclient->insert_user=$userid;
-                        $insertclient->update_user=$userid;
-                        $insertclient->save();
-                    }
+            foreach ($client as $key=>$simpanclient) {
+                $insertclient=new \App\Models\Cam\Cam_client;
+                $insertclient->id_cam=$id_cam;
+                $insertclient->id_client_account=$simpanclient['id_client_account'];
+                if($status_tasklist=="plan"){
+                    $insertclient->id_status="COST";
+                }else{
+                    $insertclient->id_status="REPORTING";
+                }
+                $insertclient->insert_user=$userid;
+                $insertclient->update_user=$userid;
+                $insertclient->save();
+            }
                 // End
             // End Update Cam Client
         // End Kondisi buat report
         }else{
         // Kondisi Jika Insert Data
             $cost=$formtask['hargaEnt'];
-        $name_file2=$formtask['fileChoose'];
+            $name_file2=$formtask['fileChoose'];
             // insert ke tabel CAM                    
-                $insert_cam=new \App\Models\Cam\Cam;
+            $insert_cam=new \App\Models\Cam\Cam;
                 // Kondisi buat kalo yg login posisinya AM maka field id_am isinya email dia, kalo bukan sesuai field PICAM
-                    if(\Auth::User()->POSITION=="AM"){
-                        $insert_cam->id_am=$userid;
-                    }else{
-                        $insert_cam->id_am=$formtask['picam'];
-                    }
+            if($posisi=="AM"){
+                $insert_cam->id_am=$userid;
+            }else{
+                $insert_cam->id_am=$formtask['picam'];
+            }
                 // End Kondisi
-                $insert_cam = new \App\Models\Cam\Cam;
-                $insert_cam->id_am = $formtask['picam'];
-                $insert_cam->id_sgm = $namasgm;
-                $insert_cam->id_sm = $namasm;
-                $insert_cam->id_gm = $namagm;
-                $insert_cam->pic_am = $formtask['picam'];
-                $insert_cam->id_cam_typeactivity = $formtask['type_act'];
-                $insert_cam->id_agcy = $formtask['agencypintu'];
-                $insert_cam->id_brand = $formtask['brand'];
-                $insert_cam->brand_variant = $formtask['variant'];
-                $insert_cam->id_adv = $formtask['advertiser'];
-                $insert_cam->type = $formtask['activity'];
-                $insert_cam->save();
-                
-                if($status_tasklist=="plan"){
-                    $insert_cam->type="PLAN";
-                }else{
-                    $insert_cam->type="REPORT";
-                }
+            $insert_cam = new \App\Models\Cam\Cam;
+            $insert_cam->id_am = $formtask['picam'];
+            $insert_cam->id_sgm = $namasgm;
+            $insert_cam->id_sm = $namasm;
+            $insert_cam->id_gm = $namagm;
+            $insert_cam->pic_am = $formtask['picam'];
+            $insert_cam->id_cam_typeactivity = $formtask['type_act'];
+            $insert_cam->id_agcy = $formtask['agencypintu'];
+            $insert_cam->id_brand = $formtask['brand'];
+            $insert_cam->brand_variant = $formtask['variant'];
+            $insert_cam->id_adv = $formtask['advertiser'];
+            $insert_cam->type = $formtask['activity'];
+            $insert_cam->save();
 
-                $insert_cam->start_date=$formtask['startdate'];
-                $insert_cam->end_date=$formtask['enddate'];
-                $insert_cam->insert_user=$userid;
-                $insert_cam->update_user=$userid;
-                $insert_cam->save();
+            if($status_tasklist=="plan"){
+                $insert_cam->type="PLAN";
+            }else{
+                $insert_cam->type="REPORT";
+            }
+
+            $insert_cam->start_date=$formtask['startdate'];
+            $insert_cam->end_date=$formtask['enddate'];
+            $insert_cam->insert_user=$userid;
+            $insert_cam->update_user=$userid;
+            $insert_cam->save();
             // End Insert Tabel CAM
 
             // Ambil id cam
-                $getidcam=$insert_cam->id_cam;
+            $getidcam=$insert_cam->id_cam;
             // End ambil id cam
 
             // Insert ke tabel Cam Brand
-                $insert_cam_brand=new \App\Models\Cam\Cam_brand;
-                $insert_cam_brand->id_cam=$getidcam;
-                $insert_cam_brand->id_brand=$formtask['brand'];
-                $insert_cam_brand->save();
+            $insert_cam_brand=new \App\Models\Cam\Cam_brand;
+            $insert_cam_brand->id_cam=$getidcam;
+            $insert_cam_brand->id_brand=$formtask['brand'];
+            $insert_cam_brand->save();
             // End insert ke tabel cam
 
             // Buat dapetin id_ref_activity
-                $id_ref_activity=\App\Models\Cam\Cam_activity::select('id_activity')
-                ->leftJoin('cam as b','b.id_cam','=','cam_activity.id_cam')
-                ->where('cam_activity.id_cam', $getidcam)
-                ->whereNull('b.deleted_at')
-                ->get();
+            $id_ref_activity=\App\Models\Cam\Cam_activity::select('id_activity')
+            ->leftJoin('cam as b','b.id_cam','=','cam_activity.id_cam')
+            ->where('cam_activity.id_cam', $getidcam)
+            ->whereNull('b.deleted_at')
+            ->get();
             // End id ref activity
 
             // Buat kasih id ref activity
-                if(count($id_ref_activity)>0){
-                    $ref_activity=$id_ref_activity[0]['id_activity'];
-                }else{
-                    $ref_activity=0;
-                }
+            if(count($id_ref_activity)>0){
+                $ref_activity=$id_ref_activity[0]['id_activity'];
+            }else{
+                $ref_activity=0;
+            }
             // End id ref activity
 
             // Insert ke tabel Cam Activity
-                $insert_cam_activity=new \App\Models\Cam\Cam_activity;
-                $insert_cam_activity->id_ref_activity=$ref_activity;
-                $insert_cam_activity->id_cam=$getidcam;
-                if($status_tasklist=="plan"){
-                    $insert_cam_activity->status="PLAN";
-                }else{
-                    $insert_cam_activity->status="ACTUAL";
-                }
-                $insert_cam_activity->id_cam_typeactivity=$formtask['type_act'];
-                $insert_cam_activity->subject=$formtask['subject'];
-                $insert_cam_activity->location=$formtask['location'];
-                $insert_cam_activity->description=$formtask['desc'];
-                $insert_cam_activity->start_date=$formtask['startdate'];
-                $insert_cam_activity->end_date=$formtask['enddate'];
-                $insert_cam_activity->potency_revenue=$formtask['potency'];
-                $insert_cam_activity->insert_user=$userid;
-                $insert_cam_activity->update_user=$userid;
-                $insert_cam_activity->save();
+            $insert_cam_activity=new \App\Models\Cam\Cam_activity;
+            $insert_cam_activity->id_ref_activity=$ref_activity;
+            $insert_cam_activity->id_cam=$getidcam;
+            if($status_tasklist=="plan"){
+                $insert_cam_activity->status="PLAN";
+            }else{
+                $insert_cam_activity->status="ACTUAL";
+            }
+            $insert_cam_activity->id_cam_typeactivity=$formtask['type_act'];
+            $insert_cam_activity->subject=$formtask['subject'];
+            $insert_cam_activity->location=$formtask['location'];
+            $insert_cam_activity->description=$formtask['desc'];
+            $insert_cam_activity->start_date=$formtask['startdate'];
+            $insert_cam_activity->end_date=$formtask['enddate'];
+            $insert_cam_activity->potency_revenue=$formtask['potency'];
+            $insert_cam_activity->insert_user=$userid;
+            $insert_cam_activity->update_user=$userid;
+            $insert_cam_activity->save();
             // End insert cam activity
 
             // Buat dapetin id activity
-                $getidactivity=$insert_cam_activity->id_activity;
+            $getidactivity=$insert_cam_activity->id_activity;
             // End id activity
 
             // Insert ke tabel Cam partner
-                foreach($part as $val){
-                    $insert_partner=new \App\Models\Cam\Cam_partner;
-                    $insert_partner->id_cam=$getidcam;
-                    $insert_partner->user_id=$val['id'];
-                    if($status_tasklist=="REPORT"){
-                        $insert_partner->keterangan="HADIR";
-                    }
-                    $insert_partner->save();
+            foreach($part as $val){
+                $insert_partner=new \App\Models\Cam\Cam_partner;
+                $insert_partner->id_cam=$getidcam;
+                $insert_partner->user_id=$val['id'];
+                if($status_tasklist=="REPORT"){
+                    $insert_partner->keterangan="HADIR";
                 }
+                $insert_partner->save();
+            }
             // End insert Cam Partner
 
             // return count($cost);
             // Jika ada cost/entertaimen yg diberikan maka jalankan script ini
-                if(count($cost) > 0){
-                    foreach($cost as $k=>$v){
+            if(count($cost) > 0){
+                foreach($cost as $k=>$v){
                             // return $k;
-                        $insert_cam_cost=new \App\Models\Cam\Cam_cost;
-                        $insert_cam_cost->id_activity=$getidactivity;
-                        $insert_cam_cost->cost=$v;
-                        $insert_cam_cost->title=$formtask['titleEnt'][$k];
-                        $insert_cam_cost->cost_description=$formtask['descEnt'][$k];
-                        $insert_cam_cost->cost_by=$formtask['partnerEnt'][$k]['id'];
-                        $insert_cam_cost->insert_user=$userid;
-                        $insert_cam_cost->update_user=$userid;
+                    $insert_cam_cost=new \App\Models\Cam\Cam_cost;
+                    $insert_cam_cost->id_activity=$getidactivity;
+                    $insert_cam_cost->cost=$v;
+                    $insert_cam_cost->title=$formtask['titleEnt'][$k];
+                    $insert_cam_cost->cost_description=$formtask['descEnt'][$k];
+                    $insert_cam_cost->cost_by=$formtask['partnerEnt'][$k]['id'];
+                    $insert_cam_cost->insert_user=$userid;
+                    $insert_cam_cost->update_user=$userid;
                         //ini untuk save image
-                        $folderName = \Auth::user()->USER_NAME;
-                        $folderName = str_replace(" ","_",$folderName);
-                        $safeName = $folderName.'-CAM-ACTIVITY-'.str_random(10).'.'.'png';
-                        if(isset($formtask['fileEnt'][$k])){
-                            $img = Image::make($formtask['fileEnt'][$k]);
-                            $img->resize(600, null, function ($constraint) {
-                                $constraint->aspectRatio();
-                            })->save('D:cam_activity_api/public/image/'.$safeName);
-                        }
-                        // end save image
-                        $insert_cam_cost->nota = $safeName;
-                        $insert_cam_cost->save();
-
-                        $idcamcost[]=$insert_cam_cost->id_cam_cost;
+                    $folderName = $userid;
+                    $folderName = str_replace(" ","_",$folderName);
+                    $safeName = $folderName.'-CAM-ACTIVITY-'.str_random(10).'.'.'png';
+                    if(isset($formtask['fileEnt'][$k])){
+                        $img = Image::make($formtask['fileEnt'][$k]);
+                        $img->resize(600, null, function ($constraint) {
+                            $constraint->aspectRatio();
+                        })->save('D:cam_activity_api/public/image/'.$safeName);
                     }
+                        // end save image
+                    $insert_cam_cost->nota = $safeName;
+                    $insert_cam_cost->save();
+
+                    $idcamcost[]=$insert_cam_cost->id_cam_cost;
                 }
+            }
                 // }
             // End cost/entertaiment
 
             // Insert ke tabel cam file
                 // jika ada file yang dibawa maka
-                if(count($name_file2) > 0){
-                    foreach($name_file2 as $index=>$val){
-                        $insert_cam_file=new \App\Models\Cam\Cam_file;
-                        $insert_cam_file->id_activity=$getidactivity;
-                        if($val['id_master_filetype'] == 1){
-                            $moduling = 'RATECARD';
-                        } else if($val['id_master_filetype'] == 2){
-                            $moduling = 'SPECIAL OFFER';
-                        } else if($val['id_master_filetype'] == 8){
-                            $moduling = 'PROGRAM';
-                        } else if($val['id_master_filetype'] == 02 || $val['id_master_filetype'] == 03){
-                            $moduling = 'PAKET';
-                        } else {
-                            $moduling = 'CONCEPT';
-                        }
-                        $insert_cam_file->module=$moduling;
-                        $insert_cam_file->id_module=$val['id_program_periode'];
-                        $insert_cam_file->id_file=$val['id_content'];
-                        $insert_cam_file->name_file=$val['content_file_download'];
-                        $insert_cam_file->insert_user=$userid;
-                        $insert_cam_file->update_user=$userid;
-                        $insert_cam_file->save();
+            if(count($name_file2) > 0){
+                foreach($name_file2 as $index=>$val){
+                    $insert_cam_file=new \App\Models\Cam\Cam_file;
+                    $insert_cam_file->id_activity=$getidactivity;
+                    if($val['id_master_filetype'] == 1){
+                        $moduling = 'RATECARD';
+                    } else if($val['id_master_filetype'] == 2){
+                        $moduling = 'SPECIAL OFFER';
+                    } else if($val['id_master_filetype'] == 8){
+                        $moduling = 'PROGRAM';
+                    } else if($val['id_master_filetype'] == 02 || $val['id_master_filetype'] == 03){
+                        $moduling = 'PAKET';
+                    } else {
+                        $moduling = 'CONCEPT';
                     }
+                    $insert_cam_file->module=$moduling;
+                    $insert_cam_file->id_module=$val['id_program_periode'];
+                    $insert_cam_file->id_file=$val['id_content'];
+                    $insert_cam_file->name_file=$val['content_file_download'];
+                    $insert_cam_file->insert_user=$userid;
+                    $insert_cam_file->update_user=$userid;
+                    $insert_cam_file->save();
                 }
+            }
                 // Jika tidak
                     // Tidak save ke tabel cam file
                 // end
             // End file
 
             // Buat nyari rata2 dari costnya
-                if(count($cost) > 0){
-                    forEach($client as $clients){
-                        forEach($idcamcost as $idcosts){
-                            $idcost[]=$idcosts;
-                        }
-                        forEach($cost as $isi){
-                            $rata2[]=$isi/count($client);
-                            $idclient[]=$clients['id_client_account'];
-                        }
+            if(count($cost) > 0){
+                forEach($client as $clients){
+                    forEach($idcamcost as $idcosts){
+                        $idcost[]=$idcosts;
+                    }
+                    forEach($cost as $isi){
+                        $rata2[]=$isi/count($client);
+                        $idclient[]=$clients['id_client_account'];
                     }
                 }
+            }
             // End buat nyari rata2 dari costnya
 
             // Insert ke tabel cost average
-                foreach($rata2 as $key1=>$val1){
-                    $insert_average_cost=new \App\Models\Cam\Cam_averagecost;
-                    $insert_average_cost->id_activity=$getidactivity;
-                    $insert_average_cost->id_cam_cost=$idcost[$key1];
-                    $insert_average_cost->id_client_account=$idclient[$key1];
-                    $insert_average_cost->cost_average=$val1;
-                    $insert_average_cost->insert_user=$userid;
-                    $insert_average_cost->update_user=$userid;
-                    $insert_average_cost->save();
-                }
+            foreach($rata2 as $key1=>$val1){
+                $insert_average_cost=new \App\Models\Cam\Cam_averagecost;
+                $insert_average_cost->id_activity=$getidactivity;
+                $insert_average_cost->id_cam_cost=$idcost[$key1];
+                $insert_average_cost->id_client_account=$idclient[$key1];
+                $insert_average_cost->cost_average=$val1;
+                $insert_average_cost->insert_user=$userid;
+                $insert_average_cost->update_user=$userid;
+                $insert_average_cost->save();
+            }
             // End insert ke tabel cost average
 
             // Insert ke tabel Cam Client
-                foreach ($client as $key=>$simpanclient) {
-                    $insertclient=new \App\Models\Cam\Cam_client;
-                    $insertclient->id_cam=$getidcam;
-                    $insertclient->id_client_account=$simpanclient['id_client_account'];
-                    if($typeadd=="activity"){
-                        $insertclient->id_status="COST";
-                    }else{
-                        $insertclient->id_status="REPORTING";
-                    }
-                    $insertclient->insert_user=$userid;
-                    $insertclient->update_user=$userid;
-                    $insertclient->save();
+            foreach ($client as $key=>$simpanclient) {
+                $insertclient=new \App\Models\Cam\Cam_client;
+                $insertclient->id_cam=$getidcam;
+                $insertclient->id_client_account=$simpanclient['id_client_account'];
+                if($typeadd=="activity"){
+                    $insertclient->id_status="COST";
+                }else{
+                    $insertclient->id_status="REPORTING";
                 }
+                $insertclient->insert_user=$userid;
+                $insertclient->update_user=$userid;
+                $insertclient->save();
+            }
             // End Insert
         // End Kondisi Insert Data
 
-            return response(['status' => 'Data Success Di Update'], 200);
+            return response([
+                'status' => 'Data Success Di Update',
+                'id_cam' => $getidcam,
+                'id_activity' => $getidactivity], 200);
         }
     }
 
@@ -1244,7 +1272,7 @@ class CamActivityController extends Controller
                 $insert_cam_cost->insert_user=$userid;
                 $insert_cam_cost->update_user=$userid;
                     //ini untuk save image
-                $folderName = \Auth::user()->USER_NAME;
+                $folderName = $username;
                 $folderName = str_replace(" ","_",$folderName);
                 $safeName = $folderName.'-CAM-ACTIVITY-'.str_random(10).'.'.'png';
                 $img = Image::make($formtask['fileEnt'][$k]);
@@ -1449,12 +1477,13 @@ class CamActivityController extends Controller
     // list clienthadnling
     public function list_client_handling(Request $request)
     {
+
         $userget = user($request->bearerToken());
         $userid = $userget->USER_ID; 
         $idbu = $userget->ID_BU;
 
         try{
-            $var=\DB::table('tbl_userclient_picsgm as a')->selectRaw('a.id, a.id_client_account, a.id_sgm, a.id_bu, b.type_company, b.id_company, e.firstname, e.lastname, e.gender, e.birth_date, b.type_company, b.email, b.position, IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company')
+            $var=\DB::connection('cam')->table('tbl_userclient_picsgm as a')->selectRaw('a.id, a.id_client_account, a.id_sgm, b.id_client, a.id_bu, b.type_company, b.id_company, e.firstname, e.lastname, e.gender, e.birth_date, b.type_company, b.email, b.position, IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company,e.photo, b.phone_number')
             ->leftJoin('tbl_userclient_account as b', 'b.id_client_account', 'a.id_client_account')
             ->leftJoin('db_m_agencypintu as c', 'c.id_agcyptu', 'b.id_company')
             ->leftJoin('db_m_advertiser as d', 'd.id_adv', 'b.id_company')
@@ -1464,8 +1493,11 @@ class CamActivityController extends Controller
             ->where('a.id_sgm', $userid)
             ->whereNull('a.deleted_at')
             ->where('b.active', 1)
-            ->whereNull('b.deleted_at')
-            ->get();
+            ->whereNull('b.deleted_at');
+            if(!empty($request->get('search'))){
+                $var = $var->where('a.firstname','like',$request->get('search'));
+            }
+            $var= $var->paginate(50);
 
             return response($var, 200);
         }catch(\Exception $e){
@@ -1485,7 +1517,7 @@ class CamActivityController extends Controller
 
         try{
 
-            $id_client_agc=\DB::table('tbl_userclient_picsgm as a')->selectRaw('a.id, a.id_client_account, a.id_sgm, a.id_bu, b.type_company, b.id_company,
+            $id_client_agc=\DB::table('tbl_userclient_picsgm as a')->selectRaw('a.id, b.id_client, a.id_client_account, a.id_sgm, a.id_bu, b.type_company, b.id_company,
                 IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company')
             ->leftJoin('tbl_userclient_account as b', 'b.id_client_account', 'a.id_client_account')
             ->leftJoin('db_m_agencypintu as c', 'c.id_agcyptu', 'b.id_company')
@@ -1523,10 +1555,10 @@ class CamActivityController extends Controller
 
             $id_client_account_notIn = array_merge($isi_id_client_account_agc, $isi_id_client_account_adv);
 
-            $var=\DB::table('tbl_userclient as a')->selectRaw('a.id_client, b.id_client_account, a.firstname, 
+            $var=\DB::connection('cam')->table('tbl_userclient as a')->selectRaw('a.id_client, b.id_client_account, a.firstname, 
             a.lastname, a.gender, a.birth_date,
-            b.email, b.type_company, b.position,
-            IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company')
+            b.email, b.type_company, b.position,b.phone_number,
+            IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company, a.photo')
             ->leftJoin('tbl_userclient_account as b', 'b.id_client', 'a.id_client')
             ->leftJoin('db_m_agencypintu as c', 'c.id_agcyptu', 'b.id_company')
             ->leftJoin('db_m_advertiser as d', 'd.id_adv', 'b.id_company')
@@ -1535,9 +1567,13 @@ class CamActivityController extends Controller
             ->where('b.active', 1)
             ->whereNull('b.deleted_at')
             ->whereNotIn('b.id_client_account', $id_client_account_notIn)
-            ->whereNotIn('b.id_client_account', [1])
-            ->orderBy('a.firstname')
-            ->get();
+            ->whereNotIn('b.id_client_account', [1]);
+            if(!empty($request->get('search'))){
+                $var = $var->where('a.firstname','like',$request->get('search'));
+            }
+            $var = $var->orderBy('a.firstname')
+            ->paginate(50);
+
             return response($var, 200);
         }catch(\Exception $e){
             return response(array('data'=>'Error at Beckend'));
@@ -1579,6 +1615,22 @@ class CamActivityController extends Controller
         }
     }
     // end list company agc yang di handle
+
+    public function search_client_company(Request $request){
+        $searchagency = $request->get('agencypintu');
+        $var = \DB::connection('cam')->table('tbl_userclient as a')->selectRaw('a.gender, a.firstname, a.lastname, a.birth_date, b.id_client_account, b.type_company, b.id_company, b.position, a.photo,
+            IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company')
+        ->leftJoin('tbl_userclient_account as b', 'b.id_client', 'a.id_client')
+        ->leftJoin('db_m_agencypintu as c', 'c.id_agcyptu', 'b.id_company')
+        ->leftJoin('db_m_advertiser as d', 'd.id_adv', 'b.id_company')
+        ->where('a.active', 1)
+        ->where('b.active', 1)
+        ->where('c.nama_agencypintu','like','%'.$searchagency.'%')
+        ->orWhere('d.nama_adv','like','%'.$searchagency.'%')
+        ->get();
+
+        return $var;
+    }
 
     // list company adv yg di handle dia
     public function list_companyAdv_handling(Request $request)
@@ -1625,22 +1677,22 @@ class CamActivityController extends Controller
             $position = $userget->POSITION;
 
             if($position=="GM"){
-                $var=\DB::table('tbl_am as a')->selectRaw('ID_SM as idnya')
+                $var=\DB::connection('cam')->table('tbl_am as a')->selectRaw('ID_SM as idnya')
                 ->where('a.ID_GM', $userid)
                 ->where('a.active', 1)
                 ->get();
             }else if($position=="SM"){
-                $var=\DB::table('tbl_am as a')->selectRaw('ID_SGM as idnya')
+                $var=\DB::connection('cam')->table('tbl_am as a')->selectRaw('ID_SGM as idnya')
                 ->where('a.ID_SM', $userid)
                 ->where('a.active', 1)
                 ->get();
             }else if($position=="SGM"){
-                $var=\DB::table('tbl_am as a')->selectRaw('ID_AM as idnya')
+                $var=\DB::connection('cam')->table('tbl_am as a')->selectRaw('ID_AM as idnya')
                 ->where('a.ID_SGM', $userid)
                 ->where('a.active', 1)
                 ->get();
             }else{
-                $var=\DB::table('tbl_am as a')->selectRaw('ID_AM as idnya')
+                $var=\DB::connection('cam')->table('tbl_am as a')->selectRaw('ID_AM as idnya')
                 ->where('a.ID_AM', $userid)
                 ->where('a.active', 1)
                 ->get();
@@ -1652,7 +1704,7 @@ class CamActivityController extends Controller
                 array_push($datanya, $data->idnya);
             }
 
-            $cost=\DB::table('cam_cost as a')->selectRaw('b.id_activity, c.id_cam, a.cost_by, SUM(a.cost) AS jumlah, a.created_at')
+            $cost=\DB::connection('cam')->table('cam_cost as a')->selectRaw('b.id_activity, c.id_cam, a.cost_by, SUM(a.cost) AS jumlah, a.created_at')
             ->leftJoin('cam_activity as b', 'b.id_activity', 'a.id_activity')
             ->leftJoin('cam as c', 'c.id_cam', 'b.id_cam')
             ->whereIn('a.cost_by', $datanya)
@@ -1662,9 +1714,211 @@ class CamActivityController extends Controller
             ->whereRaw('DATE_FORMAT(a.created_at, "%Y-%m")=date_format(now(),"%Y-%m")')
             ->groupBy('a.cost_by')
             ->get();
+            return response($cost,200);
+
         }catch(\exception $e){
-            return response(array('data'=>'Error at Beckend'));
+            return response($e->getMessage());
         }
     }
     // End List Summary report cost
+
+    // Profil Advance
+    public function getprofiladvance(Request $request, $id_client_account){
+        return $var=\DB::table('tbl_userclient_account as a')->selectRaw('a.id_client_account, e.description, e.like, e.dislike, d.name_hobby, c.id_client_infomaster, c.value')
+        ->leftJoin('tbl_userclient as b', 'b.id_client', 'a.id_client')
+        ->leftJoin('tbl_userclient_info as c', 'c.id_client', 'b.id_client')
+        ->leftJoin('tbl_hobby as d', 'd.id_hobby', 'b.hobby')
+        ->leftJoin('tbl_description as e', 'e.id_client_account', 'a.id_client_account')
+        ->where('a.id_client_account', $id_client_account)
+        ->get();
+    }
+
+    public function listHobby(Request $request){
+        try{
+            return $var=\App\Models\Cam\Cam_hobby::select('tbl_hobby.*')
+            ->get();
+
+            return response($var, 200);
+
+        }catch(\Exception $e){
+            return response(array('data'=>'Error at Backend'));
+        }
+    }
+
+    public function saveProfileAdvance(Request $request){
+        try{
+
+            $userget = user($request->bearerToken());
+            $idbu = $userget->ID_BU;
+            $posisi= $userget->POSITION;
+            $username = $userget->USERNAME;
+
+            $formtask = $request->get('form');  
+            $userid = $userget->USER_ID;
+            
+            $id_client_account = $formtask['id_client_account'];
+            $status = $formtask['status'];
+            $no_of_children = $formtask['no_of_children'];
+            $hobby=$formtask['hobby'];
+            $last_education=$formtask['last_education'];
+            $photo=$formtask['photo'];
+            $email=$formtask['email'];
+            $phone_number=$formtask['phone_number'];
+            $sosmed=$formtask['sosmed'];
+            $description=$formtask['description'];
+            $like=$formtask['like'];
+            $dislike=$formtask['dislike'];
+
+            $get_idclient=\App\Models\Cam\Clientcompany::select('id_client')
+            ->where('id_client_account', $id_client_account)
+            ->first();
+
+            $get_idclient=$get_idclient->id_client;
+
+            $cek_des=\App\Models\Cam\Cam_description::select('id_client_account')
+            ->where('id_client_account', $id_client_account)
+            ->get();
+
+            $cek_info=\App\Models\Cam\Cam_userclient_info::select('id_client')
+            ->where('id_client', $get_idclient)
+            ->get();
+
+            if($formtask['sosmed']){
+                if(count($cek_info)>0){
+                    for($a=1; $a<5; $a++){
+                        $updatesosmed=\App\Models\Cam\Cam_userclient_info::where('id_client',$get_idclient)
+                        ->where('id_client_infomaster', $a)
+                        ->update(
+                            [
+                                'value'=>$sosmed[$a-1],
+                                'updated_user'=>$userid
+                            ]
+                        );
+                    }
+                }else{
+                    for($a=1; $a<5; $a++){
+                        $infomaster= new \App\Models\Cam\Cam_userclient_info;
+                        $infomaster->id_client=$get_idclient;
+                        $infomaster->id_client_infomaster=$a;
+                        $infomaster->value=$sosmed[$a-1];
+                        $infomaster->insert_user=$userid;
+                        $infomaster->updated_user=$userid;
+                        $infomaster->created_at=Carbon::now();
+                        $infomaster->updated_at=Carbon::now();
+                        $infomaster->save();
+                    }
+                }
+            }
+
+            if(count($cek_des)>0){
+                // Update
+                $update_des=\App\Models\Cam\Cam_description::where('id_client_account', $id_client_account)
+                ->update(
+                    [
+                        'description'=>$formtask['description'],
+                        'like'=>$formtask['like'],
+                        'dislike'=>$formtask['dislike'],
+                        'id_bu'=>$idbu,
+                        'update_user'=>$userid,
+                        'updated_at'=>Carbon::now()
+                    ]
+                );
+            }else{
+                // insert
+                $insert_des=new \App\Models\Cam\Cam_description;
+                $insert_des->id_client_account=$formtask['id_client_account'];
+                $insert_des->description=$formtask['description'];
+                $insert_des->like=$formtask['like'];
+                $insert_des->dislike=$formtask['dislike'];
+                $insert_des->id_bu=$idbu;
+                $insert_des->insert_user=$userid;
+                $insert_des->update_user=$userid;
+                $insert_des->created_at=Carbon::now();
+                $insert_des->updated_at=Carbon::now();
+                $insert_des->save();
+            }
+
+            $update_user=\App\Models\Intrasm\Userclient::find($get_idclient);
+            $update_user->status=$formtask['status'];
+            $update_user->no_of_children=$formtask['no_of_children'];
+            $update_user->hobby=$formtask['hobby'];
+            $update_user->last_education=$formtask['last_education'];
+            $update_user->update_user=$userid;
+            if($formtask['photo']){
+                $folderName = $username;
+                $folderName = str_replace(" ","_",$folderName);
+                $destinationPath = app()->basePath('public/client');
+                $safeName = $folderName.'-CAM-ACTIVITY-IMAGECLIENT-'.str_random(10).'.'.'png';
+                $img = Image::make($formtask['photo']);
+                $img->resize(600, null, function ($constraint) {
+                    $constraint->aspectRatio();
+                })->save($destinationPath.'/'.$safeName);
+                $update_user->photo=$safeName;
+            }
+            else {
+                $update_user->photo=null;
+            }
+            $update_user->save();
+
+            $update_user_account=\App\Models\Intrasm\Userclient_account::where('id_client_account', $id_client_account)
+            ->update(
+                [
+                    'email'=>$formtask['email'],
+                    'phone_number'=>$formtask['phone_number'],
+                    'update_user'=>$userid,
+                    'updated_at'=>Carbon::now()
+                ]
+            );
+
+            return response(array('data'=>'Data Berhasil Di Update'));
+        }catch(\Exception $e){
+            return response($e->getMessage());
+            return response(array('data'=>'Error at Backend'));
+        }
+    }
+    // End Profil Advance
+
+    public function saveMyclient(Request $request){
+        try{
+
+            $userget = user($request->bearerToken());
+            $formtask = $request->get('form');  
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $id_client_account = $formtask['id_client_account'];
+
+            $get_idclient=\App\Models\Intrasm\Userclient_picsgm::select('id_client_account')
+            ->where('id_client_account', $id_client_account)
+            ->where('id_bu', $idbu)
+            ->get();
+
+            if(count($get_idclient)>0){
+                $update_picsgm=\App\Models\Intrasm\Userclient_picsgm::where('id_client_account', $id_client_account)
+                ->where('id_bu', $idbu)
+                ->update(
+                    [
+                        'id_sgm'=>$userid,
+                        'update_user'=>$userid,
+                        'updated_at'=>Carbon::now(),
+                    ]
+                );
+                return response(array('data'=>'Data Berhasil Di Update'));
+            }else{
+                $insert_picsgm=new \App\Models\Intrasm\Userclient_picsgm;
+                $insert_picsgm->id_client_account=$id_client_account;
+                $insert_picsgm->id_sgm=$userid;
+                $insert_picsgm->id_bu=$idbu;
+                $insert_picsgm->active=1;
+                $insert_picsgm->insert_user=$userid;
+                $insert_picsgm->update_user=$userid;
+                $insert_picsgm->created_at=Carbon::now();
+                $insert_picsgm->updated_at=Carbon::now();
+                $insert_picsgm->save();
+            }
+
+        }catch(\Exception $e){
+            return response($e->getMessage());
+            // return response(array('data'=>'Error at Backend'));
+        }
+    }
 }

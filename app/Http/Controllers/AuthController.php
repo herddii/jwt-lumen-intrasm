@@ -48,7 +48,7 @@ class AuthController extends BaseController
             'PHONE' => $user->phone_number,
             'birthdate' => $user->birth_date,
             'iat' => time(), // Time when JWT was issued. 
-            // 'exp' => time() + 60*60 // Expiration time
+            // 'exp' => time() + 60*60*60*24*7 // Expiration time
         ];
         
         // As you can see we are passing `JWT_SECRET` as the second parameter that will 
@@ -108,6 +108,7 @@ class AuthController extends BaseController
                 $var->email=$userid;
                 $var->id_bu=$useridbu;
                 $var->insert_user=$userid;
+                $var->device=$this->request->input('device');
                 $var->save(); 
 
                 return response()->json([

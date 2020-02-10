@@ -22,6 +22,6 @@ class Cam_file extends Model
     }
 
     public function File_type_sam(){
-        return $this->hasOne('App\Models\Intrasm\Sam', 'id_sam', 'id_file');
+        return $this->hasOne('App\Models\Sam\Sam', 'id_sam', 'id_file');
     }    
 }

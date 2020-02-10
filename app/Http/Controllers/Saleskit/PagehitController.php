@@ -9,7 +9,7 @@ class PagehitController extends Controller
 {
     public function pagehitInsert(Request $request){ 
         try {
-            $userid = user($request->get('token'));
+            $userid = user($request->bearerToken());
             $form = $request->content;
             \DB::table('access_logs')->insert([
                 'user_id'=>$userid->USER_ID,

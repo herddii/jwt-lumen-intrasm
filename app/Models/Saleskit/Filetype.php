@@ -16,7 +16,7 @@ class Filetype extends Model
     }
 
     public function typespot(){
-    	return $this->belongsTo('App\Models\Saleskit\Benefit_typespot','id_typespot');
+    	return $this->belongsTo('App\Models\Intrasm\Benefit_typespot','id_typespot');
     }
 
     public function content(){

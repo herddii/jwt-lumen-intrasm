@@ -16,8 +16,12 @@ class GalleryController extends Controller
     public function getIndex(Request $request,$id_kategori){
         try {
             $isi_portal = \DB::table('portal_berita as b')
+            ->leftJoin('portal_bankfoto as c','c.id_portal','b.id_portal')
             ->where('b.id_kategori',$id_kategori)
+            // ->where('b.type_video','CITRAPARIWARA') 
+            ->whereNull('b.deleted_at')
             ->orderBy('b.created_at','DESC')
+            ->groupBy('b.id_portal')
             ->paginate(6);
             return response($isi_portal,200);
         } catch (\Exception $e){
@@ -101,7 +105,7 @@ class GalleryController extends Controller
 
         try {
 
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $skrg=date('Y-m-d');
 
             $prog=\App\Models\Mediakit\Programperiode::with(
@@ -139,7 +143,7 @@ class GalleryController extends Controller
     public function get_gallery_all_program_eloquent_tanpabu(Request $request, $idGenre, $idBu){
         try {
 
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $skrg=date('Y-m-d');
 
             $prog=\App\Models\Saleskit\Programperiode::with(
@@ -176,7 +180,7 @@ class GalleryController extends Controller
 
     public function get_image(Request $request){
         try {
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $idProgram = $request->idProgram;
             $content = \DB::table('tbl_content as a')->selectRaw('*')
             ->where('id_content',$idProgram)->get();
@@ -190,7 +194,7 @@ class GalleryController extends Controller
 
     public function get_gallery_all_tanpabu(Request $request, $idBu){
         try {
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $testing = \DB::table('tbl_content as a')->selectRaw('a.id_content,
                 a.id_program_periode,
                 a.deleted_at,
@@ -241,7 +245,7 @@ class GalleryController extends Controller
 
     public function get_special_offers_eloquent_tanpabu(Request $request, $idBu){
         try {
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $skrg=date('Y-m-d');
             $special=\App\Models\Saleskit\Salestool::with(
                 [   
@@ -274,7 +278,7 @@ class GalleryController extends Controller
 
     public function get_rate_card_eloquent2_tanpabu(Request $request, $idBu){
         try {
-             $g = user($request->get('token'));
+             $g = user($request->bearerToken());
              $skrg=date('Y-m-d');
 
              $rate=\App\Models\Saleskit\Salestool::with(
@@ -311,7 +315,7 @@ class GalleryController extends Controller
 
     public function get_performance_tanpabu(Request $request, $idBu){
         try {
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $skrg = date('Y-m-d');
             $performance = '(select * from (select a.id_master_filetype, a.title, b.content_title,a.content_use, a.description,b.id_filetype, a.id_bu,a.updated_at, b.id_content,  b.content_file_download , concat(monthname(b.updated_at),", ",year(b.updated_at)) as bulan,
             concat(round(week(b.updated_at)/12)+1,", ",monthname(b.updated_at)," ",year(b.updated_at)) as week, c.BU_SHORT_NAME, d.filetype_name
@@ -384,7 +388,7 @@ class GalleryController extends Controller
 
     public function filter_gallery_all_program_eloquent_tanpabu(Request $request){
         try {
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $skrg=date('Y-m-d');
             $idBu = $request->get('id_bu');
             $idGenre = $request->get('id_genre');
@@ -427,7 +431,7 @@ class GalleryController extends Controller
 
     public function filter_special_offers_eloquent_tanpabu(Request $request){
         try {
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $skrg=date('Y-m-d');
             $idBu = $request->get('id_bu');
             $cari_specialoffers = $request->get('cari_specialoffers');
@@ -468,7 +472,7 @@ class GalleryController extends Controller
 
     public function filter_rate_card_eloquent2_tanpabu(Request $request){
         try {
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $skrg=date('Y-m-d');
             $idBu= $request->get('id_bu');
             $carirate = $request->get('cari_ratecard');
@@ -514,7 +518,7 @@ class GalleryController extends Controller
 
     public function filter_performance_tanpabu(Request $request){
         try {
-            $g = user($request->get('token'));
+            $g = user($request->bearerToken());
             $idBu = $request->get('id_bu');
             $skrg = date('Y-m-d');
             $cariperformance = $request->get('cariperformance');

@@ -3,9 +3,9 @@ namespace App\Models\Intrasm;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 class Am extends Model{
-    protected $connection="intrasm";
+    protected $connection="cam";
     protected $table="tbl_am";
-    protected $primaryKey="ID_AM";
+    // protected $primaryKey="ID_AM";
 
     protected $hidden =[
         'insert_user',

@@ -18,7 +18,7 @@ class Portalberita extends Model
     }
 
     public function sector(){
-        return $this->belongsTo('App\Models\Saleskit\Sector','id_sector')->select('id_sector','name_sector');
+        return $this->belongsTo('App\Models\Intrasm\Sector','id_sector')->select('id_sector','name_sector');
     }
 
 
