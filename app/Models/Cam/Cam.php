@@ -4,7 +4,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 class Cam extends Model
 {
-    protected $connection="cam"; 
+    // protected $connection="cam"; 
     protected $table="cam";
     protected $primaryKey="id_cam";
     //const CREATED_AT ="INSERT_DATE";

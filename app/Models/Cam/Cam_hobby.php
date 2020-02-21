@@ -4,7 +4,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 class Cam_hobby extends Model
 {
-    protected $connection="cam"; 
+    // protected $connection="cam"; 
     protected $table="tbl_hobby";
     protected $primaryKey="id_hobby";
 

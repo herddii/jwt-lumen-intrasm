@@ -53,11 +53,18 @@ $router->group(['prefix' => 'api' , 'middleware' => 'jwt.auth'], function() use 
         $router->delete('get_bu/{id}',['as'=>'get_bu.delete','uses'=>'Master\BuController@destroy']);
     });
 
+    $router->group(['prefix'=>'dashboard'],function() use($router){
+        Route::get('getIndex/{id_kategori}','Saleskit\GalleryController@getIndex');
+        Route::get('getkategori','Saleskit\GalleryController@getkategori');
+        Route::get('vers','Saleskit\GalleryController@version');
+        Route::get('get-detail-article/{slug}/{id_kategori}','Saleskit\GalleryController@detail_article');
+    });
+
     $router->group(['prefix'=>'cam_activity'], function() use($router){
-        $router->get('plafond', ['as'=>'plafond', 'uses'=>'Cam\CamActivityController@plafond']);
+        $router->post('plafond', ['as'=>'plafond', 'uses'=>'Cam\CamActivityController@plafond']);
         $router->post('get_reimburse','Cam\CamActivityController@get_reimburse');
         $router->post('get_report_daily','Cam\CamActivityController@get_report_daily');
-        $router->get('get_report_monthly','Cam\CamActivityController@get_report_monthly');
+        $router->post('get_report_monthly','Cam\CamActivityController@get_report_monthly');
         $router->post('get-activity-calendar', ['as'=>'get-activity-calendar', 'uses'=>'Cam\CamActivityController@list_activity_calendar']);
     	$router->post('list-tasklist', ['as'=>'list-tasklist', 'uses'=>'Cam\CamActivityController@list_tasklist']);
     	$router->get('detail-list-tasklist/{id_activity}/{id_cam}', ['as'=>'detail-list-tasklist', 'uses'=>'Cam\CamActivityController@detail_list_tasklist']);
@@ -84,7 +91,7 @@ $router->group(['prefix' => 'api' , 'middleware' => 'jwt.auth'], function() use 
         $router->delete('deleteCostEntertaiment', ['as'=>'deleteCostEntertaiment', 'uses'=>'Cam\CamActivityController@hapus_entertaiment']);
         $router->post('getFile', ['as'=>'getFile', 'uses'=>'Cam\CamActivityController@get_file']);
         $router->post('listAm','Cam\CamActivityController@list_am_for');
-        $router->get('listBirthdayClient','Cam\CamActivityController@list_birthday_client');
+        $router->post('listBirthdayClient','Cam\CamActivityController@list_birthday_client');
         $router->post('listClienthandling','Cam\CamActivityController@list_client_handling'); /*userid & idbu*/
         $router->post('listNotClienthandling','Cam\CamActivityController@list_client_not_handling'); /*userid & idbu*/
         $router->post('listCompanyAgency','Cam\CamActivityController@list_companyAgency_handling'); /*userid & position*/
@@ -99,10 +106,6 @@ $router->group(['prefix' => 'api' , 'middleware' => 'jwt.auth'], function() use 
 
     $router->group(['prefix'=>'saleskit'],function() use($router){
         // Route::get('details', 'Api\LoginController@details');
-        Route::get('getIndex/{id_kategori}','Saleskit\GalleryController@getIndex');
-        Route::get('getkategori','Saleskit\GalleryController@getkategori');
-        Route::get('vers','Saleskit\GalleryController@version');
-        Route::get('get-detail-article/{slug}/{id_kategori}','Saleskit\GalleryController@detail_article');
         Route::get('get_gallery_all_program_eloquent_tanpabu/{idGenre}/{idBu}','Saleskit\GalleryController@get_gallery_all_program_eloquent_tanpabu');
         Route::get('get_special_offers_eloquent_tanpabu/{idBu}','Saleskit\GalleryController@get_special_offers_eloquent_tanpabu');
         Route::get('get_rate_card_eloquent2_tanpabu/{idBu}','Saleskit\GalleryController@get_rate_card_eloquent2_tanpabu');

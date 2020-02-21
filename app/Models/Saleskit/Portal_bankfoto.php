@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models\Saleskit;
+namespace App\Models\Saleskit\;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -10,6 +10,6 @@ class Portal_bankfoto extends Model
     protected $primaryKey="id";
 
     public function portalberita(){
-        return $this->belongsTo('App\Models\Saleskit\Portalberita','id_portal');
+        return $this->belongsTo('App\Models\Portal\Portalberita','id_portal');
     }
 }

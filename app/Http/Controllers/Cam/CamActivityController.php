@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Intervention\Image\ImageManagerStatic as Image;
 use Carbon\Carbon;
+use App\User;
 use App\Models\Intrasm\Am;
 
 class CamActivityController extends Controller
@@ -143,16 +144,11 @@ class CamActivityController extends Controller
                $userget = user($request->bearerToken());
                $posisi= $userget->POSITION;
                $userid = $userget->USER_ID;
-
-               $var = \DB::connection('cam')->table('tbl_am as a')->select('*')
-               ->leftJoin('tbl_user as b','b.USER_ID','a.ID_AM')
-               ->where('a.id_am','like','%'.$userid.'%')
-               ->where('b.ACTIVE', 1)
-               ->get();
                
-               $kerabat = \DB::connection('cam')->table('tbl_am as a')->select('*')
+               $kerabat = \DB::table('tbl_am as a')->selectRaw('b.*,sum(d.cost) as jumlah')
                ->leftJoin('tbl_user as b','b.USER_ID','a.ID_AM')
-               ->leftJoin('tbl_bu as c','c.ID_BU','b.ID_BU');
+               ->leftJoin('tbl_bu as c','c.ID_BU','b.ID_BU')
+               ->leftJoin('cam_cost as d','d.cost_by','b.USER_ID');
 
                 if($posisi == 'SGM'){
                 $kerabat = $kerabat->where('ID_SGM',$userid);
@@ -164,30 +160,30 @@ class CamActivityController extends Controller
                     $kerabat = $kerabat->where('ID_SM',$userid);
                 }
 
-            $kerabat = $kerabat->get();
+            $kerabat = $kerabat->groupBy('b.USER_ID')->get();
 
 
-            $setVar = \DB::connection('cam')->table('cam_cost as a')->select('*')->leftJoin('tbl_user as b','b.USER_ID','a.cost_by')->leftJoin('tbl_bu as c','c.ID_BU','b.ID_BU')->whereIn('a.cost_by',function($query) use ($posisi, $var, $userid){
-                $query->select('ab.id_am')->from('tbl_am as ab');    
-                if($posisi == 'SGM'){
-                    $query->where('ab.ID_SGM',$userid);
-                } else if($posisi == 'SM'){
-                    $query->where('ab.ID_SM',$userid);
-                } else if($posisi == 'AM'){
-                    $query->where('ab.ID_SGM',$userid);
-                } else if($posisi == 'GM'){
-                    $query->where('ab.ID_SM',$userid);
-                }   
-            })->get();
+            // $setVar = \DB::table('cam_cost as a')->selectRaw('count(a.cost)')->leftJoin('tbl_user as b','b.USER_ID','a.cost_by')->leftJoin('tbl_bu as c','c.ID_BU','b.ID_BU')->whereIn('a.cost_by',function($query) use ($posisi, $var, $userid){
+            //     $query->select('ab.id_am')->from('tbl_am as ab');    
+            //     if($posisi == 'SGM'){
+            //         $query->where('ab.ID_SGM',$userid);
+            //     } else if($posisi == 'SM'){
+            //         $query->where('ab.ID_SM',$userid);
+            //     } else if($posisi == 'AM'){
+            //         $query->where('ab.ID_SGM',$userid);
+            //     } else if($posisi == 'GM'){
+            //         $query->where('ab.ID_SM',$userid);
+            //     }   
+            // })->get();
 
-            $gabungan = array(
-                'me' => $var, 
-                'kerabat' => $kerabat,
-                'historykerabat' => $setVar);
+            // $gabungan = array(
+            //     'me' => $var, 
+            //     'kerabat' => $kerabat);
 
-            return response($gabungan, 200);
+            return response($kerabat, 200);
         } catch(\Exception $e){
-            return response(array('data'=>'Error at Backend'));
+            return response($e->getMessage());
+            // return response(array('data'=>'Error at Backend'));
         }  
     }
 
@@ -324,28 +320,33 @@ class CamActivityController extends Controller
     public function plafond(Request $request)
     {
         try {
+            $username = $request->get('userid');
+            $v = User::select('*')->where('USER_ID','like',$username)->first();
             $userget = user($request->bearerToken());
             $posisi= $userget->POSITION;
             $idbu = $userget->ID_BU;
-            $var=\App\Models\Cam\Cam_plafont_entertaiment::selectRaw('*')->where('id_bu',$idbu)->where('position',$posisi)->get();
+            $var=\App\Models\Cam\Cam_plafont_entertaiment::selectRaw('*')->where('id_bu',$idbu)->where('position',$v->POSITION)->get();
 
             return response($var,200);
         } catch (\Exception $e){
-            return response(array('data'=>'Error at Backend'));
+            return response($e->getMessage());
         }
     }
 
     public function get_reimburse(Request $request){
         try{
+            
             $tanggal = $request->get('tanggal');
+            $userid = $request->get('userid');
             $month = date('n',strtotime($tanggal));
             $userget = user($request->bearerToken());
             $posisi= $userget->POSITION;
             $idbu = $userget->ID_BU;
             $email = $userget->USER_ID;
-            $var = \DB::connection('cam')->table('cam_cost as a')->select('*')
+
+            $var = \DB::table('cam_cost as a')->select('*')
             ->leftJoin('cam_activity as b','b.id_activity','a.id_activity')
-            ->where('cost_by','like','%'.$email.'%')
+            ->where('cost_by','like','%'.$userid.'%')
             ->where(\DB::raw('month(b.start_date)'),'like','%'.$month.'%')
             ->whereNull('a.deleted_at')->paginate(4);
 
@@ -363,13 +364,14 @@ class CamActivityController extends Controller
             $idbu = $userget->ID_BU;
             $user = $userget->USER_ID;
             $tanggal = $request->get('tanggal');
+            $userid= $request->get('userid');
             $month = date('n',strtotime($tanggal));
-            $var = \DB::connection('cam')->table('cam_cost as a')->select('*')
+            $var = \DB::table('cam_cost as a')->select('*')
             ->leftJoin('cam_activity as b','b.id_activity','a.id_activity')
             ->leftJoin('cam_client as c','c.id_cam','b.id_cam')
             ->leftJoin('tbl_userclient_account as d','d.id_client_account','c.id_client_account')
             ->leftJoin('tbl_userclient as e','e.id_client','d.id_client')
-            ->where('cost_by','like','%'.$user.'%')->where(\DB::raw('month(b.start_date)'),'like','%'.$month.'%')
+            ->where('cost_by','like','%'.$userid.'%')->where(\DB::raw('month(b.start_date)'),'like','%'.$month.'%')
             ->groupBy('a.id_cam_cost')->get();
 
             return response($var,200);
@@ -384,13 +386,15 @@ class CamActivityController extends Controller
             $userget = user($request->bearerToken());
             $posisi= $userget->POSITION;
             $idbu = $userget->ID_BU;
+            $userid= $request->get('userid');
             $user = $userget->USER_ID;
-            $var = \DB::connection('cam')->table('cam_cost as a')->selectRaw('a.title, 
+            $var = \DB::table('cam_cost as a')->selectRaw('a.title, 
                 a.cost_description, 
                 a.cost_by, 
                 a.nota, 
                 sum(a.cost) as total, 
-                month(b.start_date) as bulan,
+                month(a
+                .created_at) as bulan,
                 round((sum(a.cost)/d.limit)*100,3) as percent')
             ->leftJoin('cam_activity as b','b.id_activity','a.id_activity')
             ->leftJoin('tbl_user as c','c.USER_ID','a.cost_by')
@@ -398,7 +402,7 @@ class CamActivityController extends Controller
                 $q->on('d.id_bu','c.ID_BU');
                 $q->on('d.position','c.POSITION');
             }) 
-            ->where('cost_by','like','%'.$user.'%')
+            ->where('cost_by','like','%'.$userid.'%')
             ->whereNull('a.deleted_at')
             ->groupBy(\DB::raw('b.start_date'))->get();
 
@@ -430,7 +434,7 @@ class CamActivityController extends Controller
            $userget = user($request->bearerToken());
            $idam = $request->get('id_am');
            $idbu = $userget->ID_BU;
-           $var=\DB::connection('cam')->table('db_d_target_account as a')->selectRaw('distinct f.id_agcyptu as id, f.nama_agencypintu as text')
+           $var=\DB::table('db_d_target_account as a')->selectRaw('distinct f.id_agcyptu as id, f.nama_agencypintu as text')
            ->leftJoin('db_m_product as c','c.id_produk','a.id_produk')
            ->leftJoin('db_m_advertiser as e','e.id_adv','c.id_adv')
            ->leftJoin('db_m_agencypintu as f','f.id_agcyptu','a.id_agcyptu_run')
@@ -453,7 +457,7 @@ class CamActivityController extends Controller
             $userget = user($request->bearerToken());
             $idam = $request->get('id_am');
             $idbu = $userget->ID_BU;
-            $var=\DB::connection('cam')->table('db_d_target_account as a')->selectRaw('distinct e.id_adv as id, e.nama_adv as text')
+            $var=\DB::table('db_d_target_account as a')->selectRaw('distinct e.id_adv as id, e.nama_adv as text')
             ->leftJoin('db_m_product as c','c.id_produk','a.id_produk')
             ->leftJoin('db_m_advertiser as e','e.id_adv','c.id_adv')
             ->leftJoin('db_m_agencypintu as f','f.id_agcyptu','a.id_agcyptu_run')
@@ -478,7 +482,7 @@ class CamActivityController extends Controller
             $id_adv = $request->get('id_adv');
             $id_agencypintu = $request->get('id_agencypintu');
             $idbu = $userget->ID_BU;
-            $var=\DB::connection('cam')->table('db_d_target_account as a')->selectRaw('distinct h.id_brand as id, h.nama_brand as text')
+            $var=\DB::table('db_d_target_account as a')->selectRaw('distinct h.id_brand as id, h.nama_brand as text')
             ->leftJoin('db_m_product as c','c.id_produk','a.id_produk')
             ->leftJoin('db_m_advertiser as e','e.id_adv','c.id_adv')
             ->leftJoin('db_m_agencypintu as f','f.id_agcyptu','a.id_agcyptu_run')
@@ -500,7 +504,7 @@ class CamActivityController extends Controller
     public function list_client(Request $request)
     {
         try {
-            $var=\DB::connection('cam')->table('tbl_userclient as a')->selectRaw('UPPER(CONCAT(a.firstname, " ", IF(a.lastname is null, "", a.lastname))) as text, b.id_client_account')
+            $var=\DB::table('tbl_userclient as a')->selectRaw('UPPER(CONCAT(a.firstname, " ", IF(a.lastname is null, "", a.lastname))) as text, b.id_client_account')
             ->leftJoin('tbl_userclient_account as b', 'b.id_client', 'a.id_client')
             ->where('b.active', 1)
             ->whereNull('b.deleted_at')
@@ -1452,7 +1456,8 @@ class CamActivityController extends Controller
     public function list_birthday_client(Request $request)
     {
         try {
-            $var=\DB::table('tbl_userclient as a')->selectRaw('a.firstname, a.lastname, a.birth_date, 
+            $search = strtoupper($request->get('search'));
+            $var=\DB::table('tbl_userclient as a')->selectRaw('a.firstname, a.lastname, a.gender, a.photo, a.birth_date, 
                 b.id_client_account, a.id_client, 
                 IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv)as company, 
                 date_format(a.birth_date, "%M")as bulan, 
@@ -1464,8 +1469,11 @@ class CamActivityController extends Controller
             ->whereNull('b.deleted_at')
             ->where('a.active', 1)
             ->where('b.active', 1)
-            ->whereRaw('date_format(a.birth_date, "%m-%d")=date_format(now(),"%m-%d")')
-            ->get();
+            ->whereRaw('date_format(a.birth_date, "%m-%d")=date_format(now(),"%m-%d")');
+            if(!empty($request->get('search'))){
+                $var = $var->whereRaw("a.firstname LIKE '%$search%'");
+            }
+            $var = $var->get();
 
             return response($var,200);
         }catch(\Exception $e){
@@ -1477,13 +1485,12 @@ class CamActivityController extends Controller
     // list clienthadnling
     public function list_client_handling(Request $request)
     {
-
-        $userget = user($request->bearerToken());
-        $userid = $userget->USER_ID; 
-        $idbu = $userget->ID_BU;
-
         try{
-            $var=\DB::connection('cam')->table('tbl_userclient_picsgm as a')->selectRaw('a.id, a.id_client_account, a.id_sgm, b.id_client, a.id_bu, b.type_company, b.id_company, e.firstname, e.lastname, e.gender, e.birth_date, b.type_company, b.email, b.position, IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company,e.photo, b.phone_number')
+            $userget = user($request->bearerToken());
+            $userid = $userget->USER_ID; 
+            $idbu = $userget->ID_BU;
+            $search = strtoupper($request->get('search'));
+            $var=\DB::table('tbl_userclient_picsgm as a')->selectRaw('a.id, a.id_client_account, a.id_sgm, b.id_client, a.id_bu, b.type_company, b.id_company, e.firstname, e.lastname, e.gender, e.birth_date, b.type_company, b.email, b.position, IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company,e.photo, b.phone_number')
             ->leftJoin('tbl_userclient_account as b', 'b.id_client_account', 'a.id_client_account')
             ->leftJoin('db_m_agencypintu as c', 'c.id_agcyptu', 'b.id_company')
             ->leftJoin('db_m_advertiser as d', 'd.id_adv', 'b.id_company')
@@ -1495,13 +1502,14 @@ class CamActivityController extends Controller
             ->where('b.active', 1)
             ->whereNull('b.deleted_at');
             if(!empty($request->get('search'))){
-                $var = $var->where('a.firstname','like',$request->get('search'));
+                // $var = $var->whereRaw('e.firstname','like','%'.upper($request->get('search')).'%');
+                $var = $var->whereRaw("e.firstname LIKE '%$search%'");
             }
             $var= $var->paginate(50);
 
             return response($var, 200);
         }catch(\Exception $e){
-            return response(array('data'=>'Error at Backend'));
+            return response($e->getMessage());
         }
     }
     // end Clienthandling
@@ -1509,13 +1517,13 @@ class CamActivityController extends Controller
     // list client not handling
     public function list_client_not_handling(Request $request)
     {
-        $userget = user($request->bearerToken());
-        $userid = $userget->USER_ID;
-        $idbu = $userget->ID_BU;
-        $isi_id_client_account_agc=array();
-        $isi_id_client_account_adv=array();
-
         try{
+            $userget = user($request->bearerToken());
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $isi_id_client_account_agc=array();
+            $isi_id_client_account_adv=array();
+            $search = strtoupper($request->get('search'));
 
             $id_client_agc=\DB::table('tbl_userclient_picsgm as a')->selectRaw('a.id, b.id_client, a.id_client_account, a.id_sgm, a.id_bu, b.type_company, b.id_company,
                 IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company')
@@ -1555,10 +1563,10 @@ class CamActivityController extends Controller
 
             $id_client_account_notIn = array_merge($isi_id_client_account_agc, $isi_id_client_account_adv);
 
-            $var=\DB::connection('cam')->table('tbl_userclient as a')->selectRaw('a.id_client, b.id_client_account, a.firstname, 
-            a.lastname, a.gender, a.birth_date,
-            b.email, b.type_company, b.position,b.phone_number,
-            IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company, a.photo')
+            $var=\DB::table('tbl_userclient as a')->selectRaw('a.id_client, b.id_client_account, a.firstname, 
+                a.lastname, a.gender, a.birth_date,
+                b.email, b.type_company, b.position,b.phone_number,
+                IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company, a.photo')
             ->leftJoin('tbl_userclient_account as b', 'b.id_client', 'a.id_client')
             ->leftJoin('db_m_agencypintu as c', 'c.id_agcyptu', 'b.id_company')
             ->leftJoin('db_m_advertiser as d', 'd.id_adv', 'b.id_company')
@@ -1569,14 +1577,16 @@ class CamActivityController extends Controller
             ->whereNotIn('b.id_client_account', $id_client_account_notIn)
             ->whereNotIn('b.id_client_account', [1]);
             if(!empty($request->get('search'))){
-                $var = $var->where('a.firstname','like',$request->get('search'));
+                $var = $var->whereRaw("a.firstname LIKE '%$search%'");
+                // $var = $var->where('a.firstname','like',$request->get('search'));
             }
             $var = $var->orderBy('a.firstname')
             ->paginate(50);
 
             return response($var, 200);
         }catch(\Exception $e){
-            return response(array('data'=>'Error at Beckend'));
+            return response($e->getMessage());
+            // return response(array('data'=>'Error at Beckend'));
         }
     }
     // end list client not handling
@@ -1618,7 +1628,7 @@ class CamActivityController extends Controller
 
     public function search_client_company(Request $request){
         $searchagency = $request->get('agencypintu');
-        $var = \DB::connection('cam')->table('tbl_userclient as a')->selectRaw('a.gender, a.firstname, a.lastname, a.birth_date, b.id_client_account, b.type_company, b.id_company, b.position, a.photo,
+        $var = \DB::table('tbl_userclient as a')->selectRaw('a.gender, a.firstname, a.lastname, a.birth_date, b.id_client_account, b.type_company, b.id_company, b.position, a.photo,
             IF(b.type_company="AGC", c.nama_agencypintu, d.nama_adv) AS company')
         ->leftJoin('tbl_userclient_account as b', 'b.id_client', 'a.id_client')
         ->leftJoin('db_m_agencypintu as c', 'c.id_agcyptu', 'b.id_company')
@@ -1677,22 +1687,22 @@ class CamActivityController extends Controller
             $position = $userget->POSITION;
 
             if($position=="GM"){
-                $var=\DB::connection('cam')->table('tbl_am as a')->selectRaw('ID_SM as idnya')
+                $var=\DB::table('tbl_am as a')->selectRaw('ID_SM as idnya')
                 ->where('a.ID_GM', $userid)
                 ->where('a.active', 1)
                 ->get();
             }else if($position=="SM"){
-                $var=\DB::connection('cam')->table('tbl_am as a')->selectRaw('ID_SGM as idnya')
+                $var=\DB::table('tbl_am as a')->selectRaw('ID_SGM as idnya')
                 ->where('a.ID_SM', $userid)
                 ->where('a.active', 1)
                 ->get();
             }else if($position=="SGM"){
-                $var=\DB::connection('cam')->table('tbl_am as a')->selectRaw('ID_AM as idnya')
+                $var=\DB::table('tbl_am as a')->selectRaw('ID_AM as idnya')
                 ->where('a.ID_SGM', $userid)
                 ->where('a.active', 1)
                 ->get();
             }else{
-                $var=\DB::connection('cam')->table('tbl_am as a')->selectRaw('ID_AM as idnya')
+                $var=\DB::table('tbl_am as a')->selectRaw('ID_AM as idnya')
                 ->where('a.ID_AM', $userid)
                 ->where('a.active', 1)
                 ->get();
@@ -1704,7 +1714,7 @@ class CamActivityController extends Controller
                 array_push($datanya, $data->idnya);
             }
 
-            $cost=\DB::connection('cam')->table('cam_cost as a')->selectRaw('b.id_activity, c.id_cam, a.cost_by, SUM(a.cost) AS jumlah, a.created_at')
+            $cost=\DB::table('cam_cost as a')->selectRaw('b.id_activity, c.id_cam, a.cost_by, SUM(a.cost) AS jumlah, a.created_at')
             ->leftJoin('cam_activity as b', 'b.id_activity', 'a.id_activity')
             ->leftJoin('cam as c', 'c.id_cam', 'b.id_cam')
             ->whereIn('a.cost_by', $datanya)

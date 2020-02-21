@@ -107,3 +107,36 @@ function autoNumberFile($fileName,$reqType){
 
     return $idFile;
 }
+
+function autoNumberSamMobile($reqtype){
+    $dateNow    = date('YmdHis');
+    $ym         = date('mY');
+
+    $count    = \DB::select("select * from mobile_sam a
+                    where DATE_FORMAT(a.created_at,'%m%Y')=DATE_FORMAT(NOW(),'%m%Y')");
+
+    $n=count($count)+1;
+    if ($n<10){
+        $n="000".$n;
+    } else if ($n<100){
+        $n="00".$n;
+    } else if ($n<1000){
+        $n="0".$n;
+    } else {
+        $n=$n;
+    }
+
+    $id_sam  = $reqtype."".$ym."0".$n."-1";
+
+    return $id_sam;
+}
+
+function lastIdActivityMobile(){
+    $idActivity=1;
+    $ac   = \App\Models\Mobile\Activity::select(DB::raw('max(id_activity) as MAX'))->first();
+    if($ac !=null){
+        $idActivity = $ac->MAX+1;
+    }
+
+    return $idActivity;
+}

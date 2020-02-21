@@ -101,8 +101,8 @@ class ConceptController extends Controller {
                     \DB::raw("upper(tbl_program.program_name) as text")
                 )->orderBy('tbl_program.program_name');
 
-	        if($request->input('q')){
-	            $var=$var->where('program_name','like','%'.$request->input('q').'%');
+	        if($request->get('search')){
+	            $var=$var->where('program_name','like','%'.$request->get('search').'%');
 	        }
 
 	        if($request->has('page_limit')){
@@ -437,9 +437,9 @@ class ConceptController extends Controller {
 	            return $allAm;
 	        }
 				
-			} catch (Exception $e) {
-				return response($e->getMessage());
-			}
+		} catch (Exception $e) {
+			return response($e->getMessage());
+		}
 	}
 
 	public function list_client(Request $request){
@@ -538,617 +538,1875 @@ class ConceptController extends Controller {
 		}
 	}
 
-	public function save_request(Request $request){
-		$userget = user($request->bearerToken());
-        $posisi= $userget->POSITION;
-        $userid = $userget->USER_ID;
-        $idbu = $userget->ID_BU;
+	public function save_request_concept(Request $request){
 
-        $formtask 	  =$request->get('form');
-        $request_by   =$formtask['request_by'];
-		$brand        =$formtask['brand'];
-		$brandvariant =$formtask['brandvariant'];
-		$advertiser   =$formtask['advertiser'];
-		$agency       =$formtask['agency'];
-		$am           =$formtask['am'];
-		$idclient     =$formtask['client'];
-		$clientname   =$formtask['clientName'];
-		$benefit      =$formtask['benefit'];
-		$present      =date("YmdHis",strtotime($formtask['present'))];
-		$req_type     =$formtask['requesttype'];
-		$budget       =str_replace(",", "", $formtask['budget')];
-		$nilai    	  =str_replace(",", "", $formtask['nilai')];
-		$parameter    =$formtask['parameter'];
-		$desc         =$formtask['desc'];
-		$idsam        =autoNumberSam($req_type);
-		$idactivity   =lastIdActivity();
-		$bu           =$idbu;
-		$dateNow      =date('YmdHis');
+        try {
 
-		// set status request 
-		if($req_type==04 or $req_type==10 or $req_type==11 ){
-			if ($idbu==1 or $idbu==5) {
-				$status = getIdStatus($req_type,'REQUEST');
-			}else if($idbu==2){
-				if($posisi=='SGM' or $posisi=='SM'){
-					$status = getIdStatus($req_type,'REQUEST');
-				}else{
-					$status = getIdStatus($req_type,'DRAFT REQUEST');
-				}
-			} else {
-				$status = getIdStatus($req_type,'DRAFT REQUEST');
-			} 
-		}
+            $userget = user($request->bearerToken());
+            $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $idDepart= $userget->ID_DEPARTMENT;
 
-		$present  =date("YmdHis",strtotime($present));
+            $formtask     =$request->get('form');
 
-		// set deadline 
-		if($idbu==1 or $idbu==5) {
-			$deadline =deadlineCreative($dateNow);
-		}else if($idbu==2){
-			if($posisi=='SGM' or $posisi=='SM'){
-				$deadline =deadlineCreative($dateNow);
-			}else{
-				$deadline =deadlineApprove($dateNow);
-			}
-		} else {
-			$deadline =deadlineApprove($dateNow);
-		}
+            $brand        =$formtask['brand'];
+            $brandvariant =$formtask['brandvariant'];
+            $advertiser   =$formtask['advertiser'];
+            $agency       =$formtask['agency'];
+            $am           =$formtask['am'];
+            $benefit      =$formtask['benefit'];
+            $present      =date("YmdHis",strtotime($formtask['present']));
+            $req_type     =$formtask['requesttype'];
+            $budget       =str_replace(",", "", $formtask['budget']);
+            $nilai        =str_replace(",", "", $formtask['nilai']);
+            $parameter    =$formtask['parameter'];
+            $desc         =$formtask['desc'];
+            $idsam        =autoNumberSamMobile($req_type);
+            $idactivity   =lastIdActivityMobile();
+            $bu           =$idbu;
+            $dateNow      =date('YmdHis');
 
-		$sam                =new \App\Models\Sam\Sam;
-		$sam->id_sam        =$idsam;
-		$sam->id_req_type   =$req_type;
-		$sam->request_by    =$request_by;
-		$sam->id_status     =$status;
-		$sam->start_periode =date('Y-m-d',strtotime($deadline));
-		$sam->end_periode   =date('Y-m-d',strtotime($deadline));
-		$sam->id_brand      =$brand;
-		$sam->brand_variant =$brandvariant;
-		$sam->id_apu        =$agency;
-		$sam->id_advg       =$advertiser;
-		$sam->id_client     =$idclient;
-		$sam->client_name   =$clientname;
-		$sam->nett        	=$budget;
-		$sam->budget        =$budget;
-		$sam->pic_am        =$am;
-		$sam->deadline      =$deadline;
-		$sam->deadline_mkt  =$present;
-		$sam->active        ='1';
-		$sam->id_bu         =$idbu;
-		$sam->insert_user   =$userid;
-		$sam->update_user   =$userid;
+            if($req_type==04 or $req_type==10 or $req_type==11){
+                if ($idbu==1 or $idbu==5) {
+                    $status = getIdStatus($req_type,'REQUEST');
+                } else if($idbu==2){
+                    if($posisi=='SGM' or $posisi=='SM'){
+                        $status = getIdStatus($req_type,'REQUEST');
+                    }else{
+                        $status = getIdStatus($req_type,'DRAFT REQUEST');
+                    }
+                } else {
+                    $status = getIdStatus($req_type,'DRAFT REQUEST');
+                }
+            } 
 
-		switch ($posisi) {
-            case 'AM':
-            	$amd=\DB::table('tbl_am as a')
-	                ->where('a.id_am',$userid)
-	                ->select('id_am','id_sgm','id_sm')
-	                ->get();
+            $present  =date("YmdHis",strtotime($present));
 
-                if(count($amd)>0){
-                    foreach($amd as $row){
-						$sam->id_am  =$row->id_am;
-						$sam->id_sgm =$row->id_sgm;
-						$sam->id_sm  =$row->id_sm;
-						$vsm   =stripos($row->id_sm,"vacant");
-						$vsgm  =stripos($row->id_sgm,"vacant");
-	                      	if($vsm !== FALSE){
-							$sam->approved_sm = $row->id_sm;
-						}
-						if($vsgm !== FALSE){
-							$sam->approved_sgm = $row->id_sgm;
-						}
+            if($idbu==1 or $idbu==5){
+                $deadline =deadlineCreative($dateNow);
+            }elseif($idbu==2){
+                if($posisi=='SGM' or $posisi=='SM'){
+                    $deadline =deadlineCreative($dateNow);
+                }else{
+                    $deadline =deadlineApprove($dateNow);
+                }
+            }else{
+                $deadline =deadlineApprove($dateNow);
+            }
+
+            $sam=new \App\Models\Mobile\Sam;
+            $sam->id_sam        =$idsam;
+            $sam->id_req_type   =$req_type;
+            $sam->id_status     =$status;
+            $sam->start_periode =date('Y-m-d',strtotime($deadline));
+            $sam->end_periode   =date('Y-m-d',strtotime($deadline));
+            $sam->id_brand      =$brand;
+            $sam->brand_variant =$brandvariant;
+            $sam->id_apu        =$agency;
+            $sam->id_advg       =$advertiser;
+            $sam->budget        =$budget;
+            $sam->nett          =$budget;
+            $sam->pic_am        =$am;
+            $sam->deadline      =$present;
+            $sam->deadline_mkt  =$deadline;
+            $sam->id_bu         =$idbu;
+            $sam->insert_user   =$userid;
+            $sam->update_user   =$userid;
+            $sam->dibaca        ='N';
+            $sam->active        ='1';
+
+            switch ($posisi) {
+                case 'AM':
+                    $amd=\DB::table('tbl_am as a')
+                    ->where('a.id_am',$userid)
+                    ->select('id_am','id_sgm','id_sm')
+                    ->get();
+
+                    if(count($amd)>0){
+                        foreach($amd as $row){
+                            $vsm   =stripos($row->id_sm,"vacant");
+                            $vsgm  =stripos($row->id_sgm,"vacant");
+
+                            if($vsm !== FALSE){
+                                $sam->approved_sm = $row->id_sm;
+                            }
+                            if($vsgm !== FALSE){
+                                $sam->approved_sgm = $row->id_sgm;
+                            }
+                        }
+                    }
+
+                break;
+                case 'SGM':
+                    $sgm=\DB::table('tbl_am as a')
+                    ->where('a.id_sgm',$userid)
+                    ->select('id_am','id_sgm','id_sm')
+                    ->get();
+
+                    if(count($sgm)>0){
+                        foreach($sgm as $row){
+                            $vsm   =stripos($row->id_sm,"vacant");
+                            if($vsm !== FALSE){
+                                $sam->approved_sm = $row->id_sm;
+                            }
+                        }
+                    }
+
+                    $sam->approved_sgm = $userid;
+                   
+                break;
+                case 'SM':
+                    $sm=\DB::table('tbl_am as a')
+                    ->where('a.id_sm',$userid)
+                    ->select('id_am','id_sgm','id_sm')
+                    ->get();
+
+                    if(count($sm)>0){
+                        foreach($sm as $row){
+                            $vsgm  =stripos($row->id_sgm,"vacant");
+                            if($vsgm !== FALSE){
+                                $sam->approved_sm = $row->id_sm;
+                            }
+                        }
+                    }
+                    $sam->approved_sm = $userid;
+                    
+                break;
+                default:
+                break;
+            }
+
+            $simpan =$sam->save();
+
+            $sm=\App\Models\Mobile\Sam::find($idsam);
+
+            if($simpan){
+                if(isset($formtask['benefit'])){
+                    $benefit=$formtask['benefit'];
+                    if(count($benefit)>0){
+                        $section="";
+                        $nos=0;
+                        foreach($benefit as $key=>$val){
+                            if($val!="false"){
+
+                                if($nos==0){
+
+                                $section=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                ->where('id_bu',$idbu)
+                                ->where('id_benefit',$val)
+                                ->first();
+
+
+                                if($section != null){
+                                    $picsection= $section->id_section;
+                                }else{
+                                    $sections=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                    ->where('id_bu',$idbu)
+                                    ->where('id_benefit',0)
+                                    ->first();
+                                    $picsection= $sections->id_section;
+                                }
+                                    $s=\App\Models\Mobile\Sam::find($idsam);
+                                    $s->pic_section=$picsection;
+                                    $s->save();
+                                }
+                                
+                                $nos++;            
+                                $ben              =new \App\Models\Mobile\Detailbenefit;
+                                // $ben->id_sm      =$sm->id_sm;
+                                $ben->id_sam      =$idsam;
+                                $ben->id_benefit  =$val;
+                                $ben->budget      =$nilai[$val];
+                                $ben->id_status   =$status;
+                                $ben->insert_user =$userid;
+                                $ben->save();
+                            }
+                        }
                     }
                 }
-		    break;
-		    case 'SGM':
-		        $sgm=\DB::table('tbl_am as a')
-	                ->where('a.id_sgm',$userid)
-	                ->select('id_am','id_sgm','id_sm')
-	                ->get();
 
-                if(count($sgm)>0){
-                    foreach($sgm as $row){
-                    	$sam->id_am  =$row->id_am;
-						$sam->id_sgm =$row->id_sgm;
-						$sam->id_sm  =$row->id_sm;
-						$vsm   =stripos($row->id_sm,"vacant");
-	                    if($vsm !== FALSE){
-							$sam->approved_sm = $row->id_sm;
-						}
-                   	}
-               	}
-		        $sam->approved_sgm = $userid;
-		    break;
-		    case 'SM':
-		       	$sm=\DB::table('tbl_am as a')
-	                ->where('a.id_sm',$userid)
-	                ->select('id_am','id_sgm','id_sm')
-	                ->get();
+                if(isset($formtask['parameter'])){
+                    $parameter=$formtask['parameter'];
 
-                if(count($sm)>0){
-                   	foreach($sm as $row){
-                    	$sam->id_am  =$row->id_am;
-						$sam->id_sgm =$row->id_sgm;
-						$sam->id_sm  =$row->id_sm;
-						$vsgm  =stripos($row->id_sgm,"vacant");
-	                    if($vsgm !== FALSE){
-							$sam->approved_sm = $row->id_sm;
-						}
+                    foreach($parameter as $key=>$val){
+                        $param               =new \App\Models\Mobile\Parameterdetail;
+                        $param->id_sam       =$idsam;
+                        // $param->id_sm        =$sm->id_sm;
+                        $param->id_parameter =$key;
+                        $param->value        =$val;
+                        $param->save();
                     }
-               	}
+                }
 
-		        $sam->approved_sm = $userid;
-		    break;
-		    default:
-		    break;
-		}
+                if(isset($formtask['program'])){
+                    $pecProg=explode(",", $formtask['program']);
+                    if(count($pecProg)>0){
+                        foreach($pecProg as $row){
+                            $newProgram=new \App\Models\Mobile\Samprogram;
+                            $newProgram->id_sam=$idsam;
+                            // $newProgram->id_sm=$sm->id_sm;
+                            $newProgram->id_program_periode=$row;
+                            $newProgram->insert_user=$userid;
+                            $newProgram->save();       
+                        }
+                    }
+                }
+                
+                $attachfile=0;
+                $timeWork=0;
 
-		$simpan = $sam->save();
+                $ac                 =new \App\Models\Mobile\Activity;
+                $ac->id_activity    =$idactivity;
+                $ac->id_status      =$status;
+                $ac->id_sam         =$idsam;
+                $ac->id_attach_file =$attachfile;
+                $ac->description    =$desc;
+                $ac->insert_user    =$userid;
+                $ac->time_to_work   =$timeWork;
+                $ac->deadline       =$deadline;
+                $ac->id_bu          =$idbu;
+                $ac->save();
 
-		if($simpan){
-			if(isset($formtask['benefit'])){
-               	$benefit=$formtask['benefit'];
+                $app=\App\Models\Mobile\Sam::find($idsam);
+                $approved_sgm=$app->approved_sgm; 
+                $approved_sm=$app->approved_sm;
+
+                switch ($idbu) {
+                    case '1':
+                        $st=\App\Models\Mobile\Sam::find($idsam);
+                        $st->type      ='REQUEST';
+                        $st->save();
+
+                    break;
+                    case '2':
+                        $st=\App\Models\Mobile\Sam::find($idsam);
+
+                        if($approved_sgm != null or $approved_sm != null){
+                            $st->type ='REQUEST';
+                        }else{
+                            $st->type ='DRAFT REQUEST';
+                        }
+                    $st->save();
+
+                    break;
+                    default:
+                        $st=\App\Models\Mobile\Sam::find($idsam);
+                        $st->type      ='DRAFT REQUEST';
+                        $st->save();
+                    break;
+                }
+
+                if($request->hasFile('file')){
+
+                    $idFileType=getIdFiletype($req_type,$status);
+                    $file=$request->file('file');
+
+                    foreach($file as $key=>$val){
+                        if(!is_dir('uploads/mobile/'.$idFileType)){
+                            mkdir('uploads/mobile/'.$idFileType, 0777, TRUE);
+                        }
+
+                        $folder="uploads/mobile/".$idFileType."/";
+                        $filename=$val->getClientOriginalName();
+                        $destinationPath="uploads/mobile/".$idFileType."/";
+                        $val->move($destinationPath,$filename);
+
+                        $idFile="REG".$key."".$dateNow;
+
+                        $f=new \App\Models\Mobile\File;
+                        $f->id_sam_file=$idFile;
+                        $f->title=$filename;
+                        $f->id_activity=$idactivity;
+                        $f->nama_file=addslashes($filename);
+                        $f->insert_user=$userid;
+                        $f->id_filetype=$idFileType;
+                        $f->id_bu=$idbu;
+                        $f->save();
+
+                        $attachfile=1;
+                    }
+
+                    $act=\App\Models\Mobile\Activity::find($idactivity);
+                    $act->id_attach_file=$attachfile;
+                    $act->save();
+                }
+
+                if($request->has('cc')){
+                    $listCc=$request->input('cc');
+
+                    $pecah=explode(",", $listCc);
+
+                    if(count($pecah)>0){
+                        foreach($pecah as $row){
+                            $row=trim($row);
+                        }
+                    }
+                }
+
+                $data=array(
+                    'success'=>true,
+                    'pesan'=>'Data berhasil disimpan',
+                    'pesanEmail'=>'',
+                    'error'=>''
+                    );
+            }else{
+                $data=array(
+                    'success'=>false,
+                    'pesan'=>'Gagal menyimpan sam',
+                    'pesanEmail'=>'',
+                    'error'=>''
+                    );
+            }
+        
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }
+           
+    }
+
+    public function detail_brief(Request $request,$idsam){
+        
+        try {
+
+            $sam=\App\Models\Sam\Sam::with(
+                'detailbenefit',
+                'pic_creative',
+                'samprogram',
+                'samprogram.program',
+                'brand',
+                'advertiser',
+                'agency',
+                'am',
+                'activity',
+                'parameters',
+                'activity.file',
+                'approveSgm',
+                'approveSm',
+                'approveMc'
+            )
+            ->select(
+                'id_sam',
+                'id_req_type',
+                'created_at',
+                'end_periode',
+                'pic_section',
+                'id_brand',
+                'id_advg',
+                'id_apu',
+                'brand_variant',
+                'budget',
+                'pic_am',
+                'deadline_mkt',
+                'deadline',
+                'approved_sgm',
+                'approved_sm',
+                'approved_mc')->find($idsam);  
+        
+            return $sam;
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }
+    }
+
+    public function get_approve(Request $request,$idsam){
+        try {
+            $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $idDepart= $userget->ID_DEPARTMENT;
+
+            $formtask     =$request->get('form');
+
+            $dateNow=date('YmdHis');
+
+            //ambil data2 yang ada di local
+            $sam          =\App\Models\Sam\Sam::find($idsam);
+            $idsam        = $sam->id_sam;
+            $req_type     = $sam->id_req_type;
+            $approved_sgm = $sam->approved_sgm;
+            $approved_sm  = $sam->approved_sm;
+            $approved_mc  = $sam->approved_mc;
+            $periode      = $sam->deadline;
+            
+            //klasifikasi berdasarkan type
+            $type =isset($formtask['type']);
+            
+            if($type=="approve"){
+                $deadlineapp =deadlineApprove($dateNow);
+                $deadpresent = date("YmdHis",strtotime($formtask['present']));
+                $present     = deadlineCreative($dateNow);
+
+                $budget       =str_replace(",", "", $formtask['budget']);
+                $brandvariant =$formtask['brandvariant'];
+
+                $sm                =new \App\Models\Mobile\Sam;
+                $sm->id_sam        =$idsam;
+                $sm->id_req_type   =$req_type;
+                $sm->brand_variant =$brandvariant;
+                $sm->start_periode =date('Y-m-d',strtotime($periode));
+                $sm->end_periode   =date('Y-m-d',strtotime($periode));
+                $sm->approved_sm   =$formtask['sm_approve'];
+                $sm->approved_sgm  =$formtask['sgm_approve'];
+                $sm->approved_mc   =$formtask['mc_approve'];
+
+                switch ($idbu) {
+                    case '1':
+                    case '5':
+                        if ($req_type==04) {
+                            $sm->type   ='REQUEST';
+                            $sm->id_status = 82;
+                        }else {
+                            $sm->type   ='REQUEST';
+                            $sm->id_status = 93;
+                        }
+                        $sm->deadline      =$present;
+                        $sm->deadline_mkt  =$present;
+                    break;
+                    case '3':
+                        if ($req_type==04) {
+                            if ($formtask['sm_approve']!= null and $formtask['sgm_approve'] != null) {
+                                $sm->type   ='REQUEST';
+                                $sm->id_status = 82;
+                                $sm->deadline      =$present;
+                                $sm->deadline_mkt  =$present;
+                            } else {
+                                $sm->type      ='APPROVED';
+                                $sm->id_status = 21;
+                                $sm->deadline      =$deadlineapp;
+                                $sm->deadline_mkt  =$deadpresent;
+                            }
+                        } else {
+                            if ($formtask['sm_approve']!= null and $formtask['sgm_approve']!= null) {
+                                $sm->type   ='REQUEST';
+                                $sm->id_status = 93;
+                                $sm->deadline      =$present;
+                                $sm->deadline_mkt  =$present;
+                            } else {
+                                $sm->type      ='APPROVED';
+                                $sm->id_status = 140;
+                                $sm->deadline      =$deadlineapp;
+                                $sm->deadline_mkt  =$deadpresent;
+                            }
+                        }
+                    break;
+                    case '2':
+                        if ($req_type==04) {
+                           
+                            if($posisi =='SGM' or $posisi =='SM'){
+                                $sm->type   ='REQUEST';
+                                $sm->id_status = 82;
+                                $sm->deadline      =$present;
+                                $sm->deadline_mkt  =$present;
+                            } else{
+                                $sm->type      ='APPROVED';
+                                $sm->id_status = 21;
+                                $sm->deadline      =$deadlineapp;
+                                $sm->deadline_mkt  =$deadpresent;
+                            }
+
+                        } else {
+                            if($posisi =='SGM' or $posisi =='SM'){
+                                $sm->type   ='REQUEST';
+                                $sm->id_status = 93;
+                                $sm->deadline      =$present;
+                                $sm->deadline_mkt  =$present;
+                            } else{
+                                $sm->type      ='APPROVED';
+                                $sm->id_status = 140;
+                                $sm->deadline      =$deadlineapp;
+                                $sm->deadline_mkt  =$deadpresent;
+                            }
+                        }
+                    break;
+                    case '8':
+                       if ($req_type==04) {
+                            if ($formtask['sm_approve']!= null or $formtask['sgm_approve']!= null) {
+                                $sm->type   ='REQUEST';
+                                $sm->id_status = 82;
+                                $sm->deadline      =$present;
+                                $sm->deadline_mkt  =$present;
+                            } else {
+                                $sm->type      ='APPROVED';
+                                $sm->id_status = 21;
+                                $sm->deadline      =$deadlineapp;
+                                $sm->deadline_mkt  =$deadpresent;
+                            }
+                        } else {
+                            if ($formtask['sm_approve']!= null or $formtask['sgm_approve']!= null) {
+                                $sm->type   ='REQUEST';
+                                $sm->id_status = 93;
+                                $sm->deadline      =$present;
+                                $sm->deadline_mkt  =$present;
+                            } else {
+                                $sm->type      ='APPROVED';
+                                $sm->id_status = 140;
+                                $sm->deadline      =$deadlineapp;
+                                $sm->deadline_mkt  =$deadpresent;
+                            }
+                        }
+                    break;
+                    default:
+                        # code...
+                    break;
+                }
+
+                switch ($posisi) {
+                    case 'SGM':
+                        $sm->approved_sgm = $userid;
+                    break;
+                    case 'SM':
+                        $sm->approved_sm = $userid;
+                    break;
+                    default:
+                        $sm->approved_mc = $userid;
+                    break;
+                }
+                
+
+                if(isset($formtask['brand'])){
+                    $sm->id_brand=$formtask['brand'];
+                }
+
+                if(isset($formtask['advertiser'])){
+                    $sm->id_advg=$formtask['advertiser'];
+                }
+
+                if(isset($formtask['agency'])){
+                    $sm->id_apu=$formtask['agency'];
+                }
+
+                if(isset($formtask['am'])){
+                    $sm->pic_am=$formtask['am'];
+                }
+
+                $sm->budget        =$budget;
+                $sm->nett          =$budget;
+                $sm->approved_by   =$userid;
+                $sm->approved_date =date('Y-m-d H:i:s');
+                $sm->insert_user   =$userid;
+                $sm->update_user   =$userid;
+                $sm->id_bu         =$idbu;
+                $sm->dibaca        ='N';
+                $sm->active        ='1';
+
+                if(isset($formtask['benefit'])){
+                    $benefit=$formtask['benefit'];
+                    $nilai  =str_replace(",", "", $formtask['nilai']);
+
+                    if(count($benefit)>0){
+                        $section="";
+                        $nos=0;
+                        foreach($benefit as $key=>$val){
+                            if($val!="false"){
+
+                                if($nos==0){
+                                    $section=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                    ->where('id_bu',$idbu)
+                                    ->where('id_benefit',$val)
+                                    ->first();
+
+                                    if($section != null){
+                                        $picsection= $section->id_section;
+                                    }else{
+                                        $sections=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                        ->where('id_bu',$idbu)
+                                        ->where('id_benefit',0)
+                                        ->first();
+                                        $picsection= $sections->id_section;
+                                    }
+                                        $sm->pic_section=$picsection;
+                                }
+                                
+                                $nos++;            
+                                $ben              =new \App\Models\Mobile\Detailbenefit;
+                                $ben->id_sam      =$idsam;
+                                $ben->id_status   =$sm->id_status;
+                                $ben->id_benefit  =$val;
+                                $ben->budget      =$nilai[$val];
+
+                                $ben->insert_user =$userid;
+                                $ben->save();
+                            }
+                        }
+                    }
+                }
+
+                $simpan =$sm->save();
+
+                $idactivity  =lastIdActivityMobile();
+                $description =$formtask['desc'];
+
+                if(isset($formtask['parameter'])){
+                    $parameter=$formtask['parameter'];
+
+                    foreach($parameter as $key=>$val){
+                        $param               =new \App\Models\Mobile\Parameterdetail;
+                        $param->id_sam       =$idsam;
+                        $param->id_parameter =$key;
+                        $param->value        =$val;
+                        $param->save();
+                    }
+                }
+        
+                if(isset($formtask['program'])){
+                    $program=$formtask['program'];
+                    foreach($program as $key=>$val){
+                        \DB::table('mobile_sam_program')
+                            ->insert(
+                                [
+                                    'id_sam'             =>$idsam,
+                                    // 'id_sm'             =>$idactivity,
+                                    'id_program_periode' =>$val,
+                                    'update_user'        =>$userid,
+                                    'updated_at'         =>date('Y-m-d H:i:s')
+                                ]
+                            );
+                    }
+                }
+
+                $timeWork   =0;
+
+                $newActivity            =new \App\Models\Mobile\Activity;
+                $newActivity->id_sam    =$idsam;
+                $newActivity->id_status =$sm->id_status;
+
+                if($sm->id_status==21 or $sm->id_status==140 ){
+                    $newActivity->deadline    =$deadlineapp;
+                } else{
+                    $newActivity->deadline    =$present;
+                }
+                $newActivity->id_sam       =$idsam;
+                $newActivity->id_activity  =$idactivity;
+                $newActivity->description  =$description;
+                $newActivity->time_to_work =$timeWork;
+                $newActivity->insert_user  =$userid;
+                $newActivity->update_user  =$userid;
+                $newActivity->id_bu        =$idbu;
+                $newActivity->save();
+
+            }else if($type=="notapprove"){
+                
+                $present      =date("YmdHis",strtotime($formtask['present']));
+                $budget       =str_replace(",", "", $formtask['budget']);
+                $brandvariant =$formtask['brandvariant'];
+
+                $sm                =new \App\Models\Mobile\Sam;
+                $sm->type          ='REQUEST';
+                $sm->id_sam        =$idsam;
+                $sm->id_req_type   =$req_type;
+                $sm->id_status     = 83;
+                $sm->brand_variant =$brandvariant;
+                $sm->start_periode =date('Y-m-d',strtotime($present));
+                $sm->end_periode   =date('Y-m-d',strtotime($present));
+                $sm->deadline      =$present;
+                $sm->deadline_mkt  =$present;
+                
+                if(isset($formtask['brand'])){
+                    $sm->id_brand=$formtask['brand'];
+                } 
+
+                if(isset($formtask['advertiser'])){
+                    $sm->id_advg=$formtask['advertiser'];
+                }
+
+                if(isset($formtask['agency'])){
+                    $sm->id_apu=$formtask['agency'];
+                }
+
+                if(isset($formtask['am'])){
+                    $sm->pic_am=$formtask['am'];
+                }
+
+                $sm->budget        =$budget;
+                $sm->nett          =$budget;
+                $sm->approved_by   =$userid;
+                $sm->approved_date =date('Y-m-d H:i:s');
+                $sm->insert_user   =$userid;
+                $sm->update_user   =$userid;
+                $sm->id_bu         =$idbu;
+                $sm->dibaca        ='N';
+                $sm->active        ='1';
+                $simpan            =$sm->save();
+
+                $id_status   = $formtask['idstatus'];
+                $idactivity  =lastIdActivityMobile();
+                $status      =$id_status;
+                $description =$formtask['desc'];
+
+        
+                if(isset($formtask['parameter'])){
+                    $parameter=$formtask['parameter'];
+
+                    foreach($parameter as $key=>$val){
+                        $param               =new \App\Models\Mobile\Parameterdetail;
+                        $param->id_sam       =$idsam;
+                        // $param->id_sm        =$idactivity;
+                        $param->id_parameter =$key;
+                        $param->value        =$val;
+                        $param->save();
+                    }
+                }
+        
+
+                if(isset($formtask['program'])){
+                    $program=$formtask['program'];
+
+                    foreach($program as $key=>$val){
+                        \DB::table('mobile_sam_program')
+                            ->insert(
+                                [
+                                    'id_sam'             =>$idsam,
+                                    // 'id_sm'             =>$idactivity,
+                                    'id_program_periode' =>$val,
+                                    'update_user'        =>$userid,
+                                    'updated_at'         =>date('Y-m-d H:i:s')
+                                ]
+                            );
+                    }
+                }
+
+                $timeWork   =0;
+
+                $newActivity              =new \App\Models\Mobile\Activity;
+                $newActivity->id_sam      =$idsam;
+                $newActivity->id_activity=$idactivity;
+                $newActivity->id_status   =82;
+                $newActivity->description =$description;
+                $newActivity->time_to_work =$timeWork;
+                $newActivity->deadline    =$present;
+                $newActivity->insert_user =$userid;
+                $newActivity->update_user =$userid;
+                $newActivity->id_bu       =$idbu;
+                $newActivity->save();
+
+                
+
+                if(isset($formtask['file'])){
+                    $email['lampirans']=array();
+                    $lampirans=array();
+                    $files=$formtask['file'];
+
+                    $idFileType="1";                    
+
+                    foreach($files as $key=>$val){
+                        if(!is_dir('uploads/mobile/'.$idFileType)){
+                            mkdir('uploads/mobile/'.$idFileType,0777, TRUE);
+                        }
+
+                        $idFile="REV".$key."0".$dateNow;
+                        $folder="uploads/mobile/".$idFileType."/";
+                        $filename=trim(str_replace(" ","_",$val->getClientOriginalName()));
+                        $destinationPath="uploads/mobile/".$idFileType."/";
+                        $val->move($destinationPath,$filename);
+
+                        $lampirans[]=$destinationPath."/".$filename;
+
+                        $newFile=new \App\Models\Mobile\File;
+                        $newFile->id_sam_file=$idFile;
+                        $newFile->id_activity=$idactivity;
+                        //$newFile->id_status=$request->input('status');
+                        $newFile->title=$filename;
+                        $newFile->nama_file=$filename;
+                        $newFile->insert_user=$userid;
+                        $newFile->id_filetype=$idFileType;
+                        $newFile->id_bu=$idbu;
+                        $newFile->save();
+                    }
+
+                    $newActivity->id_attach_file='1';
+
+                    $email['lampirans']=$lampirans;
+                }
+
+
+                if(isset($formtask['benefit'])){
+
+                    $benefit=$formtask['benefit'];
+                    $nilai  =str_replace(",", "", $formtask['nilai']);
+
+                    if(count($benefit)>0){
+                        $section="";
+                        $nos=0;
+                        foreach($benefit as $key=>$val){
+                            if($val!="false"){
+
+                                if($nos==0){
+                                    $section=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                    ->where('id_bu',$idbu)
+                                    ->where('id_benefit',$val)
+                                    ->first();
+
+                                    if($section != null){
+                                        $picsection= $section->id_section;
+                                    }else{
+                                        $sections=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                        ->where('id_bu',$idbu)
+                                        ->where('id_benefit',0)
+                                        ->first();
+                                        $picsection= $sections->id_section;
+                                    }
+
+                                    $s=\App\Models\Mobile\Sam::find($idsam);
+                                    $s->pic_section=$picsection;
+                                    $s->save();
+                                }
+                                
+                                $nos++;            
+                                $ben              =new \App\Models\Mobile\Detailbenefit;
+                                $ben->id_sam      =$idsam;
+                                // $ben->id_sm       =$idactivity;
+                                $ben->id_status   =82;
+                                $ben->id_benefit  =$val;
+                                $ben->budget      =$nilai[$val];
+
+                                $ben->insert_user =$userid;
+                                $ben->save();
+                            }
+                        }
+                    }
+                }
+
+
+            }else{
+                echo "eror";
+            }
+
+            if($request->hasFile('file')){
+                $email['lampirans']=array();
+                $lampirans=array();
+                $files=$request->file('file');
+                $idFileType="1";                    
+
+                foreach($files as $key=>$val){
+                    if(!is_dir('uploads/mobile/'.$idFileType)){
+                        mkdir('uploads/mobile/'.$idFileType,0777, TRUE);
+                    }
+
+                    $idFile="REV".$key."0".$dateNow;
+                    $folder="uploads/mobile/".$idFileType."/";
+                    $filename=trim(str_replace(" ","_",$val->getClientOriginalName()));
+                    $destinationPath="uploads/mobile/".$idFileType."/";
+                    $val->move($destinationPath,$filename);
+
+                    $lampirans[]=$destinationPath."/".$filename;
+
+                    $newFile=new \App\Models\Mobile\File;
+                    $newFile->id_sam_file=$idFile;
+                    $newFile->id_activity=$idactivity;
+                    $newFile->title=$filename;
+                    $newFile->nama_file=$filename;
+                    $newFile->insert_user=$userid;
+                    $newFile->id_filetype=$idFileType;
+                    $newFile->id_bu=$idbu;
+                    $newFile->save();
+                }
+
+                $newActivity->id_attach_file='1';
+                $email['lampirans']=$lampirans;
+
+            } else {
+                $email['lampirans']=array();
+                $lampirans=array(); 
+                if(count($sam->activity)>0){
+                    foreach($sam->activity as $row){
+                        if(count($row->file)>0){
+                            foreach($row->file as $key){
+                                $destinationPath="uploads/local/".$key->id_filetype;
+                                $lampirans[]=$destinationPath."/".$key->nama_file;
+                            }
+                        }
+                    }
+                    $email['lampirans']=$lampirans;
+                }
+            }
+
+            
+            $data=array(
+                'success' =>true,
+                'pesan'   =>'Berhasil',
+                'error'   =>''
+            );
+
+
+            return $data;
+        } catch (Exception $e) {
+            
+        }
+    }
+
+    public function sam_by_id(Request $request, $id){
+        try {
+            $userget = user($request->bearerToken());
+            $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $idDepart= $userget->ID_DEPARTMENT;
+
+            $user     =\Auth::user();
+            $depName  =\App\Models\Userdepartment::find($idDepart)->DEPT_NAME;
+            $sam=\App\Models\Sam\Sam::with('brand',
+                'agency',
+                'advertiser',
+                'section',
+                'picsam',
+                'am',
+                'tblam',
+                'samprogram',
+                'samprogram.program',
+                'request',
+                'subrequest',
+                'status',
+                'statusprogress',
+                'parameters',
+                'activity',
+                'activity.status',
+                'activity.user',
+                'activity.file',
+                'activity.user.departement',
+                'insertByUser',
+                'benefit')
+            ->find($id);
+
+            $periode=periode($sam->start_periode,$sam->end_periode);
+
+            $sam->periode=$periode;
+
+            return $sam;
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }
+    }
+
+    public function detail_parameter(Request $request,$id){
+
+        try {
+            $userget = user($request->bearerToken());
+            $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $idDepart= $userget->ID_DEPARTMENT;
+
+            $sam=\App\Models\Sam\Sam::with('parameters')
+            ->where('id_bu',$idbu)
+            ->where('id_sam','=',$id)
+            ->first();
+
+            return $sam;
+        } catch (Exception $e) {
+            return response($e->getMessage());
+            
+        }
+        
+    }
+
+    public function activity_by_id(Request $request, $id){
+        try {
+            $activity=\App\Models\Sam\Activity::with('file','file.parameters','user')
+                ->find($id);
+            return $activity;
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }
+    }
+
+    public function update_sam(Request $request,$id){
+        try {
+            $userget = user($request->bearerToken());
+            $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $idDepart= $userget->ID_DEPARTMENT;
+
+            $formtask     =$request->get('form');
+
+            $sam=\App\Models\Sam\Sam::find($id);
+            $req_type = $sam->id_req_type;
+            $status = $sam->id_status;
+
+            if(isset($formtask['brand'])){
+                $sam->id_brand=$formtask['brand'];
+            }
+
+            if(isset($formtask['advertiser'])){
+                $sam->id_advg=$formtask['advertiser'];
+            }
+
+            if(isset($formtask['agency'])){
+                $sam->id_apu=$formtask['agency'];
+            }
+
+            if(isset($formtask['am'])){
+                $sam->pic_am=$formtask['am'];
+            }
+           
+            if(isset($formtask['budget'])){
+                $sam->budget=str_replace(",", "", $formtask['budget']);
+            }
+
+            if(isset($formtask['start_periode'])){
+                $sam->start_periode=isset($formtask['start_periode']);
+            }
+
+            if(isset($formtask['end_periode'])){
+                $sam->end_periode=isset($formtask['end_periode']);
+            }
+
+            if(isset($formtask['program'])){
+
+                $program=$formtask['program'];
+                \DB::table('sam_program')
+                    ->where('id_sam',$id)
+                    ->delete();
+
+                foreach($program as $key=>$val){
+                    \DB::table('sam_program')
+                        ->insert(
+                            [
+                                'id_sam'             =>$id,
+                                'id_program_periode' =>$val,
+                                'update_user'        =>$userid,
+                                'updated_at'         =>date('Y-m-d H:i:s')
+                            ]
+                        );
+                }
+            }
+
+            if(isset($formtask['benefit'])){
+                $benefit =$formtask['benefit'];
+                $nilai   =str_replace(",", "", $formtask['nilai']);
+                $cost    =str_replace(",", "", $formtask['cost']);
+                $budget_mkt    =str_replace(",", "", $formtask['budget_mkt']);
+
+                \DB::table('sam_detail_benefit')
+                        ->where('id_sam',$id)
+                        ->delete();
+
                 if(count($benefit)>0){
-	                $section="";
-	                $nos=0;
-	                foreach($benefit as $key=>$val){
-	                    if($val!="false"){
-	                       	if($nos==0){
-								$section=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
-									->where('id_bu',$idbu)
-									->where('id_benefit',$val)
-									->first();
+                    $section="";
+                    $nos=0;
+                    foreach($benefit as $key=>$val){
+                        if($val!="false"){
+                            if($nos==0){
+                                $section=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                    ->where('id_bu',$idbu)
+                                    ->where('id_benefit',$val)
+                                    ->first();
 
-								if($section != null){
-									$picsection= $section->id_section;
-								}else{
+                                if($section != null){
+                                    $picsection= $section->id_section;
+                                }else{
                                     $sections=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
                                         ->where('id_bu',$idbu)
                                         ->where('id_benefit',0)
                                         ->first();
-									$picsection= $sections->id_section;
+                                        $picsection= $sections->id_section;
                                 }
-                                    
-                                $s=Sam::find($idsam);
+                                $s=Sam::find($id);
                                 $s->pic_section=$picsection;
                                 $s->save();
-	                        }
-	                            
-	                        $nos++;            
-	                        $ben              =new \App\Models\Sam\Detailbenefit;
-	                        $ben->id_sam      =$idsam;
-	                        $ben->id_benefit  =$val;
-	                        $ben->budget      =$nilai[$val];
-	                        $ben->id_status   =$status;
-	                        $ben->insert_user =$userid;
-	                        $ben->save();
-	                    }
+                            }
+                                
+                            $nos++;            
+                            $ben              =new \App\Models\Sam\Detailbenefit;
+                            $ben->id_sam      =$id;
+                            $ben->id_benefit  =$val;
+                            $ben->budget      =$nilai[$val];
+                            $ben->budget_mkt  =$budget_mkt[$val];
+                            $ben->cost        =$cost[$val];
+                            $ben->id_status   =$status;
+                            $ben->insert_user =$userid;
+                            $ben->save();
+                        }
                     }
                 }
             }
 
-            if(isset($formtask['parameter']){
-				$parameter=$formtask['parameter'];
-				foreach($parameter as $key=>$val){
-					$param               =new \App\Models\Sam\Parameterdetail;
-					$param->id_sam       =$idsam;
-					$param->id_parameter =$key;
-					$param->value        =$val;
-					$param->save();
-				}
-			}
-
-			if(isset($formtask['program']){
-                $pecProg=explode(",", isset($formtask['program']));
-                if(count($pecProg)>0){
-                    foreach($pecProg as $row){
-						$newProgram                     =new \App\Models\Sam\Samprogram;
-						$newProgram->id_sam             =$idsam;
-						$newProgram->id_program_periode =$row;
-						$newProgram->insert_user        =$userid;
-						$newProgram->save();       
-                    }
+            if(isset($formtask['parameter'])){ 
+                $parameter=$request->input('parameter');
+                foreach($parameter as $key=>$val){
+                    \App\Models\Sam\Parameterdetail::where('id_sam',$id)
+                        ->where('id_parameter',$key)
+                        ->update(
+                            [
+                                'value'=>$val
+                            ]
+                        );
                 }
             }
 
-            $attachfile =0;
-			$timeWork   =0;
-				
-			$ac                 =new \App\Models\Sam\Activity;
-			$ac->id_activity    =$idactivity;
-			$ac->id_status      =$status;
-			$ac->id_sam         =$idsam;
-			$ac->id_attach_file =$attachfile;
-			$ac->description    =$desc;
-			$ac->insert_user    =$userid;
-			$ac->update_user    =$userid;
-			$ac->time_to_work   =$timeWork;
-			$ac->deadline       =$deadline;
-			$ac->id_bu          =$idbu;
-			$ac->save();
+            $simpan=$sam->save();
 
-			$email['lampirans'] =array();
-			$lampirans          =array();
-
-			if(isset($formtask['file'])){
-				$idFileType=getIdFiletype($req_type,$status);
-				$file=$formtask['file'];
-
-				foreach($file as $key=>$val){
-					if(!is_dir('uploads/local/'.$idFileType)){
-						mkdir('uploads/local/'.$idFileType, 0777, TRUE);
-					}
-
-					$folder          ="uploads/local/".$idFileType."/";
-					$filename        =$val->getClientOriginalName();
-					$destinationPath ="uploads/local/".$idFileType."/";
-					$val->move($destinationPath,$filename);
-
-					$lampirans[]=$destinationPath."/".$filename;
-
-					$idFile="REQ".$key."".$dateNow;
-
-					$f              =new \App\Models\Sam\File;
-					$f->id_sam_file =$idFile;
-					$f->id_activity =$idactivity;
-					$f->id_sam      =$idsam;
-					$f->title       =addslashes($filename);
-					$f->nama_file   =addslashes($filename);
-					$f->insert_user =$userid;
-					$f->id_filetype =$idFileType;
-					$f->id_bu       =$idbu;
-					$f->save();
-
-					$attachfile=1;
-				}
-
-				$act                 =\App\Models\Sam\Activity::find($idactivity);
-				$act->id_attach_file =$attachfile;
-				$act->save();
-                $email['lampirans']=$lampirans;
-			}
-
-			$email['id_bu']=$idbu;
-
-			switch ($req_type) {
-                case '4':
-                    if($idbu==1 or $idbu==5){
-		            	$namastatus="REQUEST";
-		            }elseif($idbu==2){
-		            	if($posisi=='SGM' or $posisi=='SM'){
-		            		$namastatus="REQUEST";
-		            	}else{
-		            		$namastatus="DRAFT REQUEST";
-		            	}
-		            }else{
-		            	$namastatus="DRAFT REQUEST";
-		            }
-
-                    $reqtypename="FC";
-
-                    $programs="";
-                    if(isset($formtask['program'])){
-                        $pecahProg=explode(",", $formtask['program']);
-                        $i=0;
-                        $len = count($pecahProg);
-                        if(count($pecahProg)>0){
-                            foreach($pecahProg as $row){
-                                $prog=\App\Models\Saleskit\Programperiode::select('id_program_periode','id_program')
-                                        ->with('program')->find($row);
-                                if ($i == 0 && $len>1) {
-                                    $programs.=$prog->program->program_name." - ";
-                                } else if ($i == $len - 1) {
-                                    $programs.="".$prog->program->program_name;
-                                }else{
-                                    $programs.=$prog->program->program_name;
-                                }
-                                $i++;
-                            }
-                        }
-                    }
-
-                    $email['subject']="SAM-".$namastatus." ".$reqtypename." ".$programs." ".$brandvariant;
-                break;
-                case '10':
-                    if($idbu==1 or $idbu==5){
-		            	$namastatus="REQUEST";
-		            }elseif($idbu==2){
-		            	if($posisi=='SGM' or $posisi=='SM'){
-		            		$namastatus="REQUEST";
-		            	}else{
-		            		$namastatus="DRAFT REQUEST";
-		            	}
-		            }else{
-		            	$namastatus="DRAFT REQUEST";
-		            }
-		            	
-                    $reqtypename="TVDAY";
-
-                   	$programs="";
-                    if(isset($formtask['program'])){
-                        $pecahProg=explode(",", $formtask['program']);
-                        $i=0;
-                        $len = count($pecahProg);
-                        if(count($pecahProg)>0){
-                            foreach($pecahProg as $row){
-                                $prog=\App\Models\Saleskit\Programperiode::select('id_program_periode','id_program')
-                                    ->with('program')->find($row);
-                                if ($i == 0 && $len>1) {
-                                    $programs.=$prog->program->program_name." - ";
-                                } else if ($i == $len - 1) {
-                                    $programs.="".$prog->program->program_name;
-                                }else{
-                                    $programs.=$prog->program->program_name;
-                                }
-                                $i++;
-                            }
-                        }
-                    }
-
-                    $email['subject']="SAM-".$namastatus." ".$reqtypename." ".$programs." ".$brandvariant;
-                break;
-                case '11':
-		            $namastatus="REQUEST";
-                    $reqtypename="AMPLIFY";
-
-                    $programs="";
-                    if(isset($formtask['program'])){
-                        $pecahProg=explode(",", $formtask['program']);
-                        $i=0;
-                        $len = count($pecahProg);
-                        if(count($pecahProg)>0){
-                            foreach($pecahProg as $row){
-                                $prog=\App\Models\Saleskit\Programperiode::select('id_program_periode','id_program')
-                                            ->with('program')->find($row);
-                                    if ($i == 0 && $len>1) {
-                                        $programs.=$prog->program->program_name." - ";
-                                    } else if ($i == $len - 1) {
-                                        $programs.="".$prog->program->program_name;
-                                    }else{
-                                        $programs.=$prog->program->program_name;
-                                    }
-                                    $i++;
-                            }
-                        }
-                    }
-
-                    $email['subject']="SAM-".$namastatus." ".$reqtypename." ".$brandvariant;
-                break;
-
-                default:
-                    # code...
-                break;
+            if($simpan){
+                $data=array(
+                    'success' =>true,
+                    'pesan'   =>'Data berhasil diupdate',
+                    'error'   =>''
+                );
+            }else{
+                $data=array(
+                    'success' =>false,
+                    'pesan'   =>'Data gagal disimpan',
+                    'error'   =>''
+                );
             }
 
-            $email['desc']    =$desc;
-			$email['idsam']   =$idsam;
-			$email['reqtype'] =$req_type;
+            return $data;
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }
+    }
 
-			/*------------------Validasi untuk Approval--------------------------*/
-     		$st           =\App\Models\Sam\Sam::find($idsam);
-			$approved_sgm =$st->approved_sgm; 
-			$approved_sm  =$st->approved_sm; 
+    public function status_progress_upload_concept(Request $request,$req){
+        try {
 
-            switch ($idbu) {
-               	case '2':
-                	if($req_type==04){
-	               		if($approved_sgm !=null){
-							$st->id_status=82;
-						}
-					}else{
-						if($approved_sgm !=null){
-							$st->id_status=93;
-						}
-					}
-				break;
-                case '3':
-                case '8':
-                	if($req_type==04){
-	                	if($approved_sgm !=null and $approved_sm !=null){
-							$st->id_status=82;
-						}
-					}else{
-						if($approved_sgm !=null and $approved_sm !=null){
-							$st->id_status=93;
-						}
-					}
-                break;
-                default:
-                break;
-            }
+            if(isset($formtask['idsam'])){
+                $sam=\App\Models\Sam\Sam::find($formtask['idsam']);
 
-			$st->save();
-			/*------------------End Validasi untuk Approval----------------------*/
+                $data=array();
+                $status=\App\Models\Sam\Status::where('id_req_type',$req)
+                    ->where('dept_status','MKT')
+                    ->where('relasi_status',2)
+                    ->where('stat','PROGRESS')
+                    ->orWhere('type_status',6)
+                    ->where('id_req_type',$req)
+                    ->orderBy('relasi_status')
+                    ->select('id_status','nama_status')
+                    ->get();
 
-			if(isset($formtask['cc'])){
-				$listCc =$formtask['cc'];
-				$pecah  =explode(",", $listCc);
-
-                if(count($pecah)>0){
-                    foreach($pecah as $row){
-                        $row=trim($row);
-                        array_push($cc,$row);
+                $ada="N";
+                foreach($status as $row){
+                    if($row->id_status==$sam->id_status_progress){
+                        $ada="Y";
+                    }else{
+                        if( $row->id_status==$sam->id_status){
+                            $ada='Y';
+                        } else {
+                            $ada="N";
+                        }
                     }
+                    $data[]=array(
+                        'id_status'=>$row->id_status,
+                        'nama_status'=>$row->nama_status,
+                        'ada'=>$ada
+                    );
                 }
+                return $data;
             }
+            $status=\App\Models\Sam\Status::where('id_req_type',$req)
+                    ->where('dept_status','MKT')
+                    ->where('relasi_status',1)
+                    ->where('stat','PROGRESS')
+                    ->orWhere('type_status',6)
+                    ->where('id_req_type',$req)
+                    ->orderBy('relasi_status')
+                    ->select('id_status','nama_status')
+                    ->get();
 
-            if($idbu == 3) {
-                array_push($cc,'ratih.dewi@mncgroup.com');
-            	array_push($cc,'rhezika.fibrian@mncgroup.com');
-            	array_push($cc,'galih.thanta@mncgroup.com');
-            }
-
-            if($idbu == 1) {
-                array_push($cc,'firdauzi.cece@mncgroup.com');
-            	array_push($cc,'ivan.faisal@mncgroup.com');
-            	array_push($cc,'zulfan.usuluddin@mncgroup.com');
-            	array_push($cc,'yeni.susanti@mncgroup.com');
-            	array_push($cc,'annisa.fildzah@mncgroup.com');
-            }
-
-            if($idbu == 5){
-               	array_push($cc,'sandy.anugerah@mncgroup.com');
-               	array_push($cc,'iwan.abdurahman@mncgroup.com');
-               	array_push($cc,'Akhmad.Gunanto@mncgroup.com');
-
-                $planner=\App\Models\User::where('id_section',45)
-			        ->where('active',1)
-			        ->where('id_bu',5)
-			        ->select('user_id')
-			        ->get();
-
-			    foreach($planner as $pln){
-			        array_push($cc, $pln->user_id);
-			    }
-            }
-
-            array_push($cc,'mujib.nashikha@mncgroup.com','jamal.apriadi@mncgroup.com','jaenudin.fawwaz@mncgroup.com');
+            return $status;
                 
-	        array_push($cc,$userid);
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }    
+    }
 
-	        /*-----------------------------------DRAFT--------------------------------*/
-                if($st->id_status==21 or $st->id_status==140){
-                	
-                	$email['status2']="REQUEST";
-					$email['list']=\App\Models\Sam\Status::where('id_req_type',$sam->id_req_type)
+    public function update_status_progress(Request $request, $id){
+        try {
+            
+            $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $idDepart= $userget->ID_DEPARTMENT;
+
+            $formtask     =$request->get('form');
+
+            $dateNow=date('YmdHis');
+            $status=$formtask['status'];
+            $idactivity=lastIdActivity();
+            $idrefactivity=refIdActivity($id,'SLS');
+
+            $email            =array();
+            $email['attach']  =array();
+            $email['desc']    ="";
+            $email['id_file'] ="";
+            $cc=array();
+            $to=array();
+            
+            $sam          =\App\Models\Sam\Sam::find($id);
+            $sekarang     =$sam->updated_at;
+            $brandvariant = $sam->brand_variant;
+            
+            switch ($status) {
+                case '85':
+                case '98':
+                case '105':
+                    //non aktif
+                    $sam->id_status          =$status;
+                    $sam->id_status_progress =null;
+                    $sam->update_active      =$userid;
+                    $sam->active             ='0';
+                break;
+                case '87':
+                case '99':
+                case '106':
+                    //aktif
+                    $sam->id_status          =$status;
+                    $sam->id_status_progress =null;
+                    $sam->update_active      =$userid;
+                    $sam->active             ='1';
+                break;
+                case '86':
+                case '139':
+                case '143':
+                    // reject
+                    $sam->id_status          =$status;
+                    $sam->id_status_progress =null;
+
+                    if(isset($formtask['concept'])){
+                        $email['id_file']=$formtask['concept'];
+                    }
+                break;
+                case '136':
+                case '141':
+                    //revisi hold
+                    $sam->id_status_progress =$status;
+                    $sam->deadline           =deadlineCreative($dateNow);
+                    $sam->deadline_mkt       =deadlineCreative($dateNow);
+                break;
+                case '37':
+                case '97':
+                case '145':
+                    $sam->id_status_progress=$status;
+                break;
+                default:
+                    $sam->id_status_progress=$status;
+                break;
+            }
+
+            $sam->update_progress_user =$userid;
+            $sam->update_user          =$userid;
+            $sam->updated_at           =$sekarang;
+            $simpan                    =$sam->save();
+
+            if($simpan){
+                $newActivity         =new \App\Models\Sam\Activity;
+                $newActivity->id_activity=$idactivity;
+                $newActivity->id_ref_activity=$idrefactivity;
+                $newActivity->id_sam =$id;
+
+                if(isset($formtask['desc'])){
+                    $newActivity->id_status   =$status;
+                    $newActivity->description =$formtask['desc'];
+                    $email['desc']            =$formtask['desc'];
+                }else{
+                    $newActivity->id_status   =$status;
+                }
+
+                $newActivity->insert_user  =$userid;
+                $newActivity->time_to_work =0;
+                $newActivity->id_bu        =$idbu;
+                $newActivity->save();
+
+                $stat=\App\Models\Sam\Status::find($formtask['status']);
+
+                $email['status2'] ="UPDATE";
+                $email['id_bu']   =$idbu;
+                $email['id_status_progress']=$sam->id_status_progress;
+
+                /* konfigurasi email */
+                switch ($sam->id_req_type) {
+                    case '4':
+                        $reqtypename="FC";
+
+                        $programs="";
+                        $i=0;
+                        $len = count($sam->samprogram);
+                        if(count($sam->samprogram)>0){
+                            foreach($sam->samprogram as $row){
+                            $prog=\App\Models\Portal\Programperiode::select('id_program_periode','id_program')
+                                                ->with('program')->find($row->id_program_periode);
+                                if ($i == 0 && $len>1) {
+                                    $programs.=$prog->program->program_name." - ";
+                                } else if ($i == $len - 1) {
+                                    $programs.="".$prog->program->program_name;
+                                }else{
+                                    $programs.=$prog->program->program_name;
+                                }
+                                $i++;
+                            }
+                        }
+
+                        $email['subject']="SAM-".$stat->nama_status." ".$reqtypename." ".$programs." ".$brandvariant;
+                    break;
+                    case '10':
+                        $reqtypename="TVDAY";
+
+                        $programs="";
+                        $i=0;
+                        $len = count($sam->samprogram);
+                        if(count($sam->samprogram)>0){
+                            foreach($sam->samprogram as $row){
+                            $prog=\App\Models\Portal\Programperiode::select('id_program_periode','id_program')
+                                                ->with('program')->find($row->id_program_periode);
+                                if ($i == 0 && $len>1) {
+                                    $programs.=$prog->program->program_name." - ";
+                                } else if ($i == $len - 1) {
+                                    $programs.="".$prog->program->program_name;
+                                }else{
+                                    $programs.=$prog->program->program_name;
+                                }
+                                $i++;
+                            }
+                        }
+
+                        $email['subject']="SAM-".$stat->nama_status." ".$reqtypename." ".$programs." ".$brandvariant;
+                    break;
+                    case '11':
+                        $reqtypename="AMPLIFY";
+
+                        $programs="";
+                        $i=0;
+                        $len = count($sam->samprogram);
+                        if(count($sam->samprogram)>0){
+                            foreach($sam->samprogram as $row){
+                            $prog=\App\Models\Portal\Programperiode::select('id_program_periode','id_program')
+                                                ->with('program')->find($row->id_program_periode);
+                                if ($i == 0 && $len>1) {
+                                    $programs.=$prog->program->program_name." - ";
+                                } else if ($i == $len - 1) {
+                                    $programs.="".$prog->program->program_name;
+                                }else{
+                                    $programs.=$prog->program->program_name;
+                                }
+                                $i++;
+                            }
+                        }
+
+                        $email['subject']="SAM-".$stat->nama_status." ".$reqtypename." ".$brandvariant;
+                    break;
+                    default:
+                        # code...
+                        $email['subject']="";
+                    break;
+                }
+
+                $email['statusList']=\App\Models\Sam\Status::where('id_req_type',$sam->id_req_type)
                         ->where('stat','STATUS')
-                        ->where('relasi_status',1)
-                        ->where('type_status',0)
+                        ->where('relasi_status',3)
+                        ->where('type_status','<>',7)
                         ->get();
 
-                	$toAtasan=\DB::table('tbl_am as a')
-                        ->where('a.id_am',$am)
-                        ->select('id_am','id_sgm','id_sm','id_gm')
+                $req_type=$sam->id_req_type;
+                $email['idsam']=$sam->id_sam;
+                $email['idreqtype']=$sam->id_req_type;
+
+                
+                $toSales=\DB::table('tbl_am as a')
+                    ->where('a.id_am',$sam->pic_am)
+                    ->select('id_am','id_sgm','id_sm','id_gm')
+                    ->get();
+
+                if(count($toSales)>0){
+                    foreach($toSales as $row){
+                        if(!strstr($row->id_gm,'vacant') && $row->id_gm!=""){
+                            array_push($to, $row->id_gm);
+                        }
+
+                        if(!strstr($row->id_sm,'vacant') && $row->id_sm!=""){
+                            array_push($to,$row->id_sm);
+                        }
+
+                        if(!strstr($row->id_sgm,'vacant') && $row->id_sgm!=""){
+                            array_push($to,$row->id_sgm);
+                        }
+
+                        if(!strstr($row->id_am,'vacant') && $row->id_am!=""){
+                            array_push($to,$row->id_am);
+                        }
+                    }
+                }
+
+                $ccBenefit=\App\Models\Sam\Sam::leftJoin('sam_detail_benefit as b','b.id_sam','=','sam.id_sam')
+                        ->leftJoin('sam_benefit_section as c','c.id_benefit','=','b.id_benefit') 
+                        ->leftJoin('tbl_user as d','d.ID_SECTION','=','c.id_section') 
+                        ->where('sam.id_sam',$sam->id_sam)
+                        ->where('c.id_bu',$idbu)
+                        ->where('d.active',1)
+                        ->where('d.true_email','=','Y')
+                        ->whereNotNull('c.id_section')
+                        ->select('b.id_benefit','c.id_section','d.user_id')
+                        ->groupBy('d.user_id')
                         ->get();
 
-	           		if(count($toAtasan)>0){
-	                    foreach($toAtasan as $row){
-	                        if(!strstr($row->id_gm,'vacant') && $row->id_gm!=""){
-	                            array_push($to, $row->id_gm);
-	                        }
-	                        if(!strstr($row->id_sm,'vacant') && $row->id_sm!=""){
-	                            array_push($to,$row->id_sm);
-	                        }
-	                        if(!strstr($row->id_sgm,'vacant') && $row->id_sgm!=""){
-	                            array_push($to,$row->id_sgm);
-	                        }
-	                    }
-	                }
+                        foreach ($ccBenefit as $key => $value) {
+                            array_push($cc,$value->user_id);
+                        }
 
-	                $email['to']=$to;
-	                $email['cc']=$cc;
-	                $email['from']=\Auth::user()->USER_ID;
-                    $email['fromname']=ucwords(strtolower(\Auth::user()->USER_NAME));
+                /*--------------email by type request---------*/ 
+                
+                $ccMkt=\App\Models\Sam\Picsection::leftJoin('tbl_user as b','b.id_section','=','sam_benefit_section.id_section')
+                        ->where('id_req_type',$sam->id_req_type)
+                        ->where('sam_benefit_section.id_bu',$idbu)
+                        ->where('b.active',1)
+                        ->where('b.true_email','=','Y')
+                        ->where('id_benefit',0)
+                        ->orderBy('b.position','asc')
+                        ->select('b.user_id','b.id_section','b.id_bu')
+                        ->get();    
+                
 
-	                \Mail::send('sam.concept.email.detail_brief',$email,function($mail) use($email){
-			            $mail->from($email['from'],$email['fromname']);
-			            $mail->to($email['to'])->cc($email['cc']);
+                foreach ($ccMkt as $key => $value) {
+                    array_push($cc,$value->user_id);
+                }
+                /*--------------email by type request---------*/ 
+                if($idbu == 1) {
+                    array_push($cc,'firdauzi.cece@mncgroup.com');
+                    array_push($cc,'ivan.faisal@mncgroup.com');
+                    array_push($cc,'zulfan.usuluddin@mncgroup.com');
+                    array_push($cc,'yeni.susanti@mncgroup.com');
+                    array_push($cc,'annisa.fildzah@mncgroup.com');
+                }
+                array_push($cc,'mujib.nashikha@mncgroup.com','jamal.apriadi@mncgroup.com','jaenudin.fawwaz@mncgroup.com');
 
-			            if(count($email['lampirans'])>0){
-			                foreach($email['lampirans'] as $key=>$val){
-			                    $mail->attach($val);
-			                }
-			            }
-			            $mail->subject($email['subject']);
-			        });
+                // array_push($cc,$userid);
+                $email['to']=$to;
+                $email['cc']=$cc;
+                $email['from']=$userid;
+                $email['fromname']=ucwords(strtolower($userget->USER_NAME));
+
+
+                $pesanEmail="";
+                \Mail::send('sam.concept.email.update_status_progress',$email,function($mail) use($email){
+                    $mail->from($email['from'],$email['fromname']);
+                    $mail->to($email['to'])->cc($email['cc']);
+
+                    $mail->subject($email['subject']);
+                });
+
+                if(count(\Mail::failures())>0){
+                    $pesanEmail="Email Not Send";
+                    $pesanEmail.="<ul>";
+                    foreach(Mail::failures as $email_address){
+                        $pesanEmail.="<li>".$email_address."</li>";
+                    }
+                    $pesanEmail="</ul>";
+                }else{
+                    $pesanEmail="Email berhasil dikirim";
+                }
+
+                /* end konfigurasi email */
+                $data=array(
+                    'success'=>true,
+                    'pesan'=>'Data Berhasil terkirim',
+                    'error'=>'',
+                    'pesanEmail'=>$pesanEmail
+                );
+
+            } else {
+                $data=array(
+                    'success' =>false,
+                    'pesan'   =>'Data tidak terupdate',
+                    'error'   =>''
+                );
+            }
+
+            return $data;
+        
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }
+    }
+
+    public function update_status_progress_status(Request $request,$req){
+        try {
+            
+            $status=\App\Models\Sam\Status::where('id_req_type',$req)
+            ->where('relasi_status',3)
+            ->where('type_status',11)
+            ->orderBy('relasi_status')
+            ->get();
+
+            return $status;
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }
+       
+    }
+
+    public function update_request_mobile(Request $request,$id){
+        try {
+            $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $idDepart= $userget->ID_DEPARTMENT;
+
+            $formtask     =$request->get('form');
+
+            $dateNow=date('YmdHis');
+            $email=array();
+            $cc=array();
+
+            $sam=\App\Models\Sam\Sam::findOrFail($id);
+
+            $req_type = $sam->id_req_type;
+            $status    =$formtask['status'];
+
+
+            $newSam=new \App\Models\Mobile\Sam;
+            $newSam->id_sam=$id;
+            $newSam->id_req_type=$sam->id_req_type;
+            $newSam->type="REQUEST";
+            $newSam->id_status=$formtask['status'];
+            $newSam->deadline=deadlineCreative($dateNow);
+            $newSam->deadline_mkt=deadlineCreative($dateNow);
+            $newSam->dibaca="N";
+            $newSam->id_brand =$formtask['brand'];
+            $newSam->brand_variant =$formtask['brandvariant'];
+            $newSam->id_advg =$formtask['advertiser'];
+            $newSam->id_apu =$formtask['agency'];
+            $newSam->budget =$formtask['budget'];
+            $newSam->approved_by=$userid;
+            $newSam->insert_user=$userid;
+            $newSam->update_user=$userid;
+            $newSam->pic_am=$sam->pic_am;
+            $newSam->id_bu=$idbu;
+
+            $simpan=$newSam->save();
+
+            if($simpan){
+
+                $idactivity=lastIdActivityMobile();
+                $idFileType="1";                    
+
+                $activity=\App\Models\Sam\Activity::leftJoin('sam_status as b','b.id_status','=','sam_activity.id_status')
+                    ->select('sam_activity.id_sam','sam_activity.created_at',\DB::raw("TIMESTAMPDIFF(SECOND,sam_activity.created_at,NOW()) as timeWork"))
+                    ->orderBy('created_at','desc')
+                    ->where('b.dept_status','MKT')
+                    ->where('b.id_status',[82,93])
+                    ->where('sam_activity.id_sam',$id)
+                    ->groupBy('id_sam')
+                    ->first();
+
+                if($activity != null){
+                    $timeWork=$activity->timeWork;
+                }else{
+                    $timeWork=0;
+                }
+
+                $newActivity=new \App\Models\Mobile\Activity;
+                $newActivity->id_activity=$idactivity;
+                $newActivity->id_sam=$id;
+
+                $email['lampirans']=array();
+                
+                if(isset($formtask['file'])){
+                    $email['lampirans']=array();
+                    $lampirans=array();
+                    $files=$formtask['file'];
+                    foreach($files as $key=>$val){
+                        if(!is_dir('uploads/mobile/'.$idFileType)){
+                            mkdir('uploads/mobile/'.$idFileType,0777, TRUE);
+                        }
+
+                        $idFile="UPDATE".$key."0".$dateNow;
+                        $folder="uploads/mobile/".$idFileType."/";
+                        $filename=trim(str_replace(" ","_",$val->getClientOriginalName()));
+                        $destinationPath="uploads/mobile/".$idFileType."/";
+                        $val->move($destinationPath,$filename);
+
+                        $lampirans[]=$destinationPath."/".$filename;
+
+                        $newFile=new \App\Models\Mobile\File;
+                        $newFile->id_sam_file=$idFile;
+                        $newFile->id_activity=$idactivity;
+                        //$newFile->id_status=$request->input('status');
+                        $newFile->title=$filename;
+                        $newFile->nama_file=$filename;
+                        $newFile->insert_user=$userid ;
+                        $newFile->id_filetype=$idFileType;
+                        $newFile->id_bu=$idbu;
+                        $newFile->save();
+                    }
+
+                    $newActivity->id_attach_file='1';
+                    $newActivity->id_sam_file =$idFile;
+                    $email['lampirans']=$lampirans;
 
                 } else {
-                /*-----------------------------------REQUEST--------------------------------*/
-					$email['req_type'] =$req_type;
-                	
-                	$ccAtasan=\DB::table('tbl_am as a')
-                        ->where('a.id_am',$sam->pic_am)
-                        ->select('id_am','id_sgm','id_sm','id_gm')
-                        ->get();
-
-            		if(count($ccAtasan)>0){
-		               	foreach($ccAtasan as $row){
-		                    if(!strstr($row->id_gm,'vacant') && $row->id_gm!=""){
-		                       	array_push($cc, $row->id_gm);
-		                    }
-
-		                    if(!strstr($row->id_sm,'vacant') && $row->id_sm!=""){
-		                        array_push($cc,$row->id_sm);
-		                    }
-
-		                    if(!strstr($row->id_sgm,'vacant') && $row->id_sgm!=""){
-		                        array_push($cc,$row->id_sgm);
-		                    }
-               			}
-            		}
-            		
-                	if($request->has('benefit')){
-                		$benefits=$request->input('benefit');
-                		foreach($benefits as $key=>$val){
-                    			$section=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
-                                    ->where('id_bu',\Auth::user()->ID_BU)
-                                    ->where('id_benefit',$val)
-                                    ->first();
-                                
-			                if($section != null){
-			                    $userSection=\App\Models\User::where('id_section',$section->id_section)
-			                                ->where('active',1)
-			                                ->where('id_bu',\Auth::user()->ID_BU)
-			                                ->select('user_id','user_name')
-			                                ->get();
-			                    foreach($userSection as $up){
-			                        array_push($to, $up->user_id);
-			                    }
-			                }
-                		}
-            		}
-
-            		/*--------------email by type request---------*/ 
-            		
-	                $ccMkt=\App\Models\Sam\Picsection::leftJoin('tbl_user as b','b.id_section','=','sam_benefit_section.id_section')
-		                ->where('id_req_type',$sam->id_req_type)
-		                ->where('sam_benefit_section.id_bu',\Auth::user()->ID_BU)
-		                ->where('b.active',1)
-		                ->where('id_benefit',0)
-		                ->where('b.true_email','=','Y')
-		                ->orderBy('b.position','asc')
-		                ->select('b.user_id','b.id_section','b.id_bu')
-		                ->get();
-					
-
-	                foreach ($ccMkt as $key => $value) {
-                        array_push($to,$value->user_id);
+                    $email['lampirans']=array();
+                    $lampirans=array(); 
+                    if(count($sam->activity)>0){
+                        foreach($sam->activity as $row){
+                            if(count($row->file)>0){
+                                foreach($row->file as $key){
+                                    $destinationPath="uploads/local/".$key->id_filetype;
+                                    $lampirans[]=$destinationPath."/".$key->nama_file;
+                                }
+                            }
+                        }
+                        $email['lampirans']=$lampirans;
                     }
-            		/*--------------email by type request---------*/ 
-
-                    $email['to']=$to;
-	               	$email['cc']=$cc;
-	                $email['from']=\Auth::user()->USER_ID;
-                    $email['fromname']=ucwords(strtolower(\Auth::user()->USER_NAME));
-
-                    //info hutang
-                    $email['agcCek']=\App\Models\Dashboard\Agencypintu::find($agency);
-                    $email['advCek']=\App\Models\Dashboard\Advertiser::find($advertiser);
-                    $email['brandCek']=\App\Models\Dashboard\Brand::find($brand);
-
-                	\Mail::send('sam.concept.email.request_concept',$email,function($mail) use($email){
-			            $mail->from($email['from'],$email['fromname']);
-			            $mail->to($email['to'])->cc($email['cc']);
-
-			            if(count($email['lampirans'])>0){
-			                foreach($email['lampirans'] as $key=>$val){
-			                    $mail->attach($val);
-			                }
-			            }
-
-			            $mail->subject($email['subject']);
-			        });
                 }
 
+                $newActivity->description=nl2br($formtask['desc']);
+                $newActivity->id_status=$formtask['status'];
+                $newActivity->insert_user=$userid ;
+                $newActivity->time_to_work=$timeWork;
+                $newActivity->deadline=deadlineMkt($dateNow);
+                $newActivity->id_bu=$idbu;
 
+                if($request->has('nodeal')){
+                    $newActivity->id_nodeal=$formtask['nodeal'];
+                }
 
+                $saveActivity=$newActivity->save();
 
+                if(isset($formtask['cc'])){
+                    $listCc=$formtask['cc'];
+                    $pecah=explode(",", $listCc);
 
+                    if(count($pecah)>0){
+                        foreach($pecah as $row){
+                            $row=trim($row);
+                            $newCc=new \App\Models\Mobile\Cc;
+                            $newCc->id_sam=$id;
+                            $newCc->email=$row;
+                            $newCc->save();
+                        }
+                    }
+                }
+                    
+                if(isset($formtask['benefit'])){
+                    $benefit =$formtask['benefit'];
+                    $nilai   =$formtask['nilai'];
+                    if(count($benefit)>0){
+                        $section="";
+                        $nos=0;
+                        foreach($benefit as $key=>$val){
+                                if($val!="false"){
 
-		}
+                                    if($nos==0){
+                                        $section=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                            ->where('id_bu',$idbu)
+                                            ->where('id_benefit',$val)
+                                            ->first();
 
+                                        if($section != null){
+                                            $picsection= $section->id_section;
+                                        }else{
+                                            $sections=\App\Models\Sam\Sambenefitsection::where('id_req_type',$req_type)
+                                            ->where('id_bu',$idbu)
+                                            ->where('id_benefit',0)
+                                            ->first();
+                                            $picsection= $sections->id_section;
+                                        }
+                                        $s=\App\Models\Mobile\Sam::find($id);
+                                        $s->pic_section=$picsection;
+                                        $s->save();
+                                    }
+                                    
+                                    $nos++;            
+                                    $ben              =new \App\Models\Mobile\Detailbenefit;
+                                    // $ben->id_sm       =$idactivity;
+                                    $ben->id_sam      =$id;
+                                    $ben->id_benefit  =$val;
+                                    $ben->budget      =$nilai[$val];
 
-	}
+                                    $ben->id_status   =$status;
+                                    $ben->insert_user =$userid ;
+                                    $ben->save();
+                                }
+                        }
+                    }
+                }
+
+                if(isset($formtask['parameter'])){
+                    $parameter=$formtask['parameter'];
+                    foreach($parameter as $key=>$val){
+                        $param               =new \App\Models\Mobile\Parameterdetail;
+                        $param->id_sam       =$id;
+                        $param->id_parameter =$key;
+                        $param->value        =$val;
+                        $param->save();
+                    }
+                }
+
+                if(isset($formtask['program'])){
+                    $tes = $formtask['program'];
+                    foreach($tes as $row){
+                        $newProgram=new \App\Models\Mobile\Samprogram;
+                        $newProgram->id_sam=$id;
+                        $newProgram->id_program_periode=$row;
+                        $newProgram->insert_user=$userid ;
+                        $newProgram->save();     
+                    }  
+                }
+
+                $data=array(
+                    'success'=>true,
+                    'pesan'=>'Data Berhasil terkirim',
+                    'error'=>''
+                );
+            }else{
+                $data=array(
+                    'success'=>false,
+                    'pesan'=>'Data gagal terkirim',
+                    'error'=>''
+                );
+            }
+
+                return $data;
+
+        } catch (Exception $e) {
+            return response($e->getMessage());
+        }
+    }
+
+    public function update_status_mobile(Request $request, $id){
+       try {
+
+            $posisi= $userget->POSITION;
+            $userid = $userget->USER_ID;
+            $idbu = $userget->ID_BU;
+            $idDepart= $userget->ID_DEPARTMENT;
+
+            $formtask     =$request->get('form');
+
+            $dateNow=date('YmdHis');
+            $email=array();
+            $cc=array();
+
+            $sam=\App\Models\Sam\Sam::findOrFail($id);
+            $newSam= new \App\Models\Mobile\Sam;
+            $budget=str_replace(",", "", $formtask['budget']);
+
+            $newSam->id_sam=$id;
+            $newSam->id_req_type=$sam->id_req_type;
+            $newSam->type="UPDATE";
+            $newSam->id_status=$formtask['status'];
+            $newSam->deadline=deadlineCreative($dateNow);
+            $newSam->deadline_mkt=deadlineCreative($dateNow);
+            $newSam->dibaca="N";
+            $newSam->id_brand =$formtask['brand'];
+            $newSam->brand_variant =$formtask['brandvariant'];
+            $newSam->id_advg =$formtask['advertiser'];
+            $newSam->id_apu =$formtask['agency'];
+            $newSam->budget =$budget;
+            $newSam->nett =$budget;
+            $newSam->approved_by   =$userid ;
+            $newSam->insert_user   =$userid ;
+            $newSam->update_user   =$userid ;
+            $newSam->pic_am=$sam->pic_am;
+            $newSam->id_bu=$idbu;
+
+            if(isset($formtask['brand'])){
+                $newSam->id_brand=$formtask['brand'];
+            } 
+
+            $simpan=$newSam->save();
+
+            if($simpan){
+                $idactivity=lastIdActivityMobile();
+                $idFileType="6";                    
+
+                $activity=\App\Models\Sam\Activity::leftJoin('sam_status as b','b.id_status','=','sam_activity.id_status')
+                    ->select('sam_activity.id_sam','sam_activity.created_at',\DB::raw("TIMESTAMPDIFF(SECOND,sam_activity.created_at,NOW()) as timeWork"))
+                    ->orderBy('created_at','desc')
+                    ->where('b.dept_status','MKT')
+                    ->whereIn('b.id_status',[23,24,88,95,96])
+                    ->where('sam_activity.id_sam',$id)
+                    ->groupBy('id_sam')
+                    ->first();
+
+                if($activity != null){
+                    $timeWork=$activity->timeWork;
+                }else{
+                    $timeWork=0;
+                }
+
+                $newActivity=new \App\Models\Mobile\Activity;
+                $newActivity->id_activity=$idactivity;
+                $newActivity->id_sam=$id;
+
+                $email['lampirans']=array();
+                    
+                if($request->hasFile('file')){
+                    $email['lampirans']=array();
+                    $lampirans=array();
+                    $files=$request->file('file');
+                    foreach($files as $key=>$val){
+                        if(!is_dir('uploads/mobile/'.$idFileType)){
+                            mkdir('uploads/mobile/'.$idFileType,0777, TRUE);
+                        }
+
+                        $idFile="UPDATE".$key."0".$dateNow;
+                        $folder="uploads/mobile/".$idFileType."/";
+                        $filename=trim(str_replace(" ","_",$val->getClientOriginalName()));
+                        $destinationPath="uploads/mobile/".$idFileType."/";
+                        $val->move($destinationPath,$filename);
+
+                        $lampirans[]=$destinationPath."/".$filename;
+
+                        $newFile=new \App\Models\Mobile\File;
+                        $newFile->id_sam_file=$idFile;
+                        $newFile->id_activity=$idactivity;
+                        $newFile->title=$filename;
+                        $newFile->nama_file=$filename;
+                        $newFile->insert_user=$userid ;
+                        $newFile->id_filetype=$idFileType;
+                        $newFile->id_bu=$idbu;
+                        $newFile->save();
+                    }
+                    $newActivity->id_attach_file='1';
+                    $email['lampirans']=$lampirans;
+                }
+
+                $newActivity->description=nl2br($formtask['desc']);
+                $newActivity->id_status=$formtask['status'];
+                $newActivity->insert_user=$userid ;
+                $newActivity->update_user=$userid ;
+                $newActivity->time_to_work=$timeWork;
+                $newActivity->deadline=deadlineMkt($dateNow);
+                $newActivity->id_bu=$idbu;
+
+                if($request->has('nodeal')){
+                    $newActivity->id_nodeal=$formtask['nodeal'];
+                }
+
+                $saveActivity=$newActivity->save();
+
+                if(isset($formtask['cc'])){
+                    $listCc=$formtask['cc'];
+                    $pecah=explode(",", $listCc);
+
+                    if(count($pecah)>0){
+                        foreach($pecah as $row){
+                            $row=trim($row);
+                            $newCc=new \App\Models\Mobile\Cc;
+                            $newCc->id_sam=$id;
+                            $newCc->email=$row;
+                            $newCc->save();
+                        }
+                    }
+                }
+
+                $data=array(
+                    'success'=>true,
+                    'pesan'=>'Data Berhasil terkirim',
+                    'error'=>''
+                );
+            }else{
+                $data=array(
+                    'success'=>false,
+                    'pesan'=>'Data gagal terkirim',
+                    'error'=>''
+                );
+            }
+
+            return $data;
+       } catch (Exception $e) {
+            return response($e->getMessage());
+       }
+    }
 
 }
